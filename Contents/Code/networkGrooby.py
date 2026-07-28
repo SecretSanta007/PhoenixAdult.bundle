@@ -5,7 +5,7 @@ import PAsearchSites
 def search(results, lang, siteNum, searchData):
     searchResults = []
 
-    googleResults = PAutils.getFromGoogleSearch(searchData.title, siteNum)
+    googleResults = PAutils.getFromSearchEngine(searchData.title, siteNum)
     for sceneURL in googleResults:
         sceneURL = sceneURL.split('?', 1)[0]
         if '/trailers/' in sceneURL and sceneURL not in searchResults:
@@ -36,7 +36,7 @@ def search(results, lang, siteNum, searchData):
     return results
 
 
-def update(metadata, lang, siteNum, movieGenres, movieActors, art):
+def update(metadata, lang, siteNum, movieGenres, movieActors, movieCollections, art):
     metadata_id = str(metadata.id).split('|')
     sceneURL = PAutils.Decode(metadata_id[0])
     if not sceneURL.startswith('http'):
@@ -52,16 +52,15 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
     metadata.summary = detailsPageElements.xpath('//div[@class="trailer_videoinfo"]//p | //div[@class="trailerpage_info"]/p[not(@class)]')[-1].text_content()
 
     # Studio
-    metadata.studio = PAsearchSites.getSearchSiteName(siteNum)
+    metadata.studio = 'Grooby'
 
     # Tagline and Collection(s)
-    metadata.collections.clear()
-    tagline = PAsearchSites.getSearchSiteName(siteNum).strip()
+    tagline = PAsearchSites.getSearchSiteName(siteNum)
     metadata.tagline = tagline
-    metadata.collections.add(tagline)
+    movieCollections.addCollection(tagline)
 
     # Release Date
-    dateNode = detailsPageElements.xpath('//div[@class="setdesc"]/*[contains(., "Added")]//following-sibling::text()')
+    dateNode = detailsPageElements.xpath('//div[@class="setdesc"]/*[contains(., "Added")]//following-sibling::text() | //div[@class="trailer_videoinfo"]/*[contains(., "Added")]//following-sibling::text()')
     if dateNode:
         date = dateNode[0].split('-', 1)[-1].strip()
 
@@ -70,14 +69,11 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
             metadata.originally_available_at = date_object
             metadata.year = metadata.originally_available_at.year
 
-    # Actors
-    movieActors.clearActors()
+    # Actor(s)
     for actorLink in detailsPageElements.xpath('//div[@class="trailer_videoinfo"]//p[contains(., "Featuring")]//a | //div[@class="setdesc"]//a[contains(@href, "/models/")]'):
         actorName = actorLink.text_content().strip()
 
         actorURL = actorLink.get('href')
-        # Bob's TGirls actor links are //www. I still haven't managed to get this site working properly though it does not grab the photo correctly from the code
-        # I do not understand why, same goes for TGirls.porn - Once this is fixed these sites will be supported
         if actorURL.startswith('//'):
             actorURL = 'http:' + actorURL
         elif not actorURL.startswith('http'):
@@ -98,16 +94,16 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
 
     # Posters
     xpaths = [
-        '//div[@class="trailerpage_photoblock_fullsize"]//a/@href'
+        '//div[@class="trailerpage_photoblock_fullsize"]//a/@href',
+        '//div[@class="trailerposter"]//img/@src0_4x',
+        '//div[@class="player-thumb"]//img/@src0_4x',
     ]
     for xpath in xpaths:
         for poster in detailsPageElements.xpath(xpath):
             if not poster.startswith('http'):
-                poster = PAsearchSites.getSearchBaseURL(siteNum) + '/tour/' + poster
+                poster = PAsearchSites.getSearchBaseURL(siteNum) + poster
 
             art.append(poster)
-    # We need to find a way to fallback to the trailer image, as some of the older videos do not have the 4 photos, they are in the source code but 404 when selected
-    # Also we could set the trailer image as the background for the video in Plex
 
     Log('Artwork found: %d' % len(art))
     for idx, posterUrl in enumerate(art, 1):

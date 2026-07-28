@@ -26,17 +26,13 @@ def search(results, lang, siteNum, searchData):
     return results
 
 
-def update(metadata, lang, siteNum, movieGenres, movieActors, art):
+def update(metadata, lang, siteNum, movieGenres, movieActors, movieCollections, art):
     metadata_id = str(metadata.id).split('|')
     sceneURL = PAutils.Decode(metadata_id[0])
     if not sceneURL.startswith('http'):
         sceneURL = PAsearchSites.getSearchBaseURL(siteNum) + sceneURL
     req = PAutils.HTTPRequest(sceneURL)
     detailsPageElements = HTML.ElementFromString(req.text)
-
-    metadata.collections.clear()
-    movieGenres.clearGenres()
-    movieActors.clearActors()
 
     # Title
     metadata.title = detailsPageElements.xpath('//h2[@class="wxt7nk-4 fSsARZ"]')[0].text_content().replace('SML-', '').replace('Trailer', '').strip()
@@ -45,8 +41,7 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
     metadata.studio = 'TrueAmateurs'
 
     # Tagline and Collection(s)
-    metadata.tagline = metadata.studio
-    metadata.collections.add(metadata.tagline)
+    movieCollections.addCollection(metadata.tagline)
 
     # Genres
     for genreLink in detailsPageElements.xpath('//div[@class="tjb798-2 flgKJM"]/span[1]/a'):
@@ -62,7 +57,7 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
         metadata.originally_available_at = date_object
         metadata.year = metadata.originally_available_at.year
 
-    # Actors
+    # Actor(s)
     try:
         actors = detailsPageElements.xpath('//a[@class="wxt7nk-6 czvZQW"]')
         if actors:

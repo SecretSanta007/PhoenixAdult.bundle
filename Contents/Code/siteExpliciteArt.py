@@ -20,7 +20,7 @@ def search(results, lang, siteNum, searchData):
     return results
 
 
-def update(metadata, lang, siteNum, movieGenres, movieActors, art):
+def update(metadata, lang, siteNum, movieGenres, movieActors, movieCollections, art):
     metadata_id = str(metadata.id).split('|')
     sceneURL = PAutils.Decode(metadata_id[0])
 
@@ -34,20 +34,17 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
     metadata.summary = detailsPageElements.xpath('//div[@class="player-info-desc"]')[0].text_content().strip()
 
     # Tagline and Collection(s)
-    metadata.collections.clear()
-    tagline = PAsearchSites.getSearchSiteName(siteNum).strip()
+    tagline = PAsearchSites.getSearchSiteName(siteNum)
     metadata.studio = tagline
-    metadata.collections.add(tagline)
+    movieCollections.addCollection(tagline)
 
     # Genres
-    movieGenres.clearGenres()
     for genreLink in detailsPageElements.xpath('//span[@class="tags"]/a'):
         genreName = genreLink.text_content().strip()
 
         movieGenres.addGenre(genreName)
 
-    # Actors
-    movieActors.clearActors()
+    # Actor(s)
     for actorLink in detailsPageElements.xpath('//div[@class="player-info-row"]/a'):
         actorName = actorLink.text_content().strip()
 

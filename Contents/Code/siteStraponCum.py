@@ -23,7 +23,7 @@ def search(results, lang, siteNum, searchData):
     return results
 
 
-def update(metadata, lang, siteNum, movieGenres, movieActors, art):
+def update(metadata, lang, siteNum, movieGenres, movieActors, movieCollections, art):
     metadata_id = str(metadata.id).split('|')
     sceneURL = PAutils.Decode(metadata_id[0])
     if not sceneURL.startswith('http'):
@@ -41,10 +41,9 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
     metadata.studio = 'Strapon Cum'
 
     # Tagline and Collection(s)
-    metadata.collections.clear()
-    tagline = PAsearchSites.getSearchSiteName(siteNum).strip()
+    tagline = PAsearchSites.getSearchSiteName(siteNum)
     metadata.tagline = tagline
-    metadata.collections.add(tagline)
+    movieCollections.addCollection(tagline)
 
     # Release Date
     date = detailsPageElements.xpath('//div[@class="card"]//i[contains(@class, "fa-clock")]/following-sibling::text()')[0].text_content().split('•')[1].strip()
@@ -54,15 +53,13 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
         metadata.year = metadata.originally_available_at.year
 
     # Genres
-    movieGenres.clearGenres()
     movieGenres.addGenre('Strap-On')
     movieGenres.addGenre('Lesbian')
     for genreLink in detailsPageElements.xpath('//div[contains(@class, "tag-cloud")]//a'):
         genreName = genreLink.text_content().strip()
         movieGenres.addGenre(genreName)
 
-    # Actors
-    movieActors.clearActors()
+    # Actor(s)
     actors = detailsPageElements.xpath('//div[@class="card"]//span[contains(text(), "Featuring:")]/following-sibling::a')
     if actors:
         if len(actors) == 3:

@@ -17,7 +17,7 @@ def search(results, lang, siteNum, searchData):
     return results
 
 
-def update(metadata, lang, siteNum, movieGenres, movieActors, art):
+def update(metadata, lang, siteNum, movieGenres, movieActors, movieCollections, art):
     metadata_id = str(metadata.id).split('|')
     sceneURL = PAutils.Decode(metadata_id[0])
     if not sceneURL.startswith('http'):
@@ -38,10 +38,9 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
     metadata.studio = 'BAMVisions'
 
     # Tagline and Collection(s)
-    metadata.collections.clear()
-    tagline = PAsearchSites.getSearchSiteName(siteNum).strip()
+    tagline = PAsearchSites.getSearchSiteName(siteNum)
     metadata.tagline = tagline
-    metadata.collections.add(tagline)
+    movieCollections.addCollection(tagline)
 
     # Release Date
     date = detailsPageElements.xpath('//ul[@class="item-meta"]/li[1]')[0].text_content().split('Release Date:')[1].strip()
@@ -51,12 +50,10 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
         metadata.year = metadata.originally_available_at.year
 
     # Genres
-    movieGenres.clearGenres()
     movieGenres.addGenre('Anal')
     movieGenres.addGenre('Hardcore')
 
-    # Actors
-    movieActors.clearActors()
+    # Actor(s)
     actors = detailsPageElements.xpath('//div[@class="item-info"]/h5/a')
     for actorLink in actors:
         actorName = actorLink.text_content().strip()
@@ -74,9 +71,7 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
         movieActors.addActor(actorName, actorPhotoURL)
 
     # Posters
-    art = [
-        PAsearchSites.getSearchBaseURL(siteNum) + scenePoster
-    ]
+    art.append(PAsearchSites.getSearchBaseURL(siteNum) + scenePoster)
 
     Log('Artwork found: %d' % len(art))
     for idx, posterUrl in enumerate(art, 1):

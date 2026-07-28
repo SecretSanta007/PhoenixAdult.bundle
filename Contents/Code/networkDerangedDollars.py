@@ -5,7 +5,7 @@ import PAutils
 def search(results, lang, siteNum, searchData):
     searchResults = []
 
-    googleResults = PAutils.getFromGoogleSearch(searchData.title, siteNum)
+    googleResults = PAutils.getFromSearchEngine(searchData.title, siteNum)
     for sceneURL in googleResults:
         if '/session/' in sceneURL not in searchResults:
             searchResults.append(sceneURL)
@@ -35,7 +35,7 @@ def search(results, lang, siteNum, searchData):
     return results
 
 
-def update(metadata, lang, siteNum, movieGenres, movieActors, art):
+def update(metadata, lang, siteNum, movieGenres, movieActors, movieCollections, art):
     metadata_id = str(metadata.id).split('|')
     sceneURL = PAutils.Decode(metadata_id[0])
     sceneDate = metadata_id[2]
@@ -52,10 +52,9 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
     metadata.studio = 'Deranged Dollars'
 
     # Tagline and Collection(s)
-    metadata.collections.clear()
     tagline = detailsPageElements.xpath('//title')[0].text_content().split('|')[1].strip().replace('.com', '')
     metadata.tagline = tagline
-    metadata.collections.add(metadata.tagline)
+    movieCollections.addCollection(metadata.tagline)
 
     # Release Date
     if sceneDate:
@@ -64,14 +63,12 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
         metadata.year = metadata.originally_available_at.year
 
     # Genres
-    movieGenres.clearGenres()
     for genreLink in detailsPageElements.xpath('//p[@class="tags"]/a'):
         genreName = PAutils.parseTitle(genreLink.text_content().strip(), siteNum)
 
         movieGenres.addGenre(genreName)
 
-    # Actors
-    movieActors.clearActors()
+    # Actor(s)
     actors = detailsPageElements.xpath('//div[@class="lch"]/span')[0].text_content().rsplit(',', 2)[0]
     if ':' in actors:
         actors = re.split(',|&|/|And', actors.split(':', 1)[1])

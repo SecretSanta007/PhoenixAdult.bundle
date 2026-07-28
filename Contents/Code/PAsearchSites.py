@@ -3,29 +3,20 @@ import PAutils
 
 
 def getSearchSiteName(siteNum):
-    siteName = None
-    if PAsiteList.searchSites[siteNum]:
-        siteName = PAsiteList.searchSites[siteNum][0]
-
-    return siteName
+    site = PAsiteList.searchSites.get(siteNum)
+    return site.name if site else None
 
 
 def getSearchBaseURL(siteNum):
-    url = None
-    if PAsiteList.searchSites[siteNum]:
-        url = PAsiteList.searchSites[siteNum][1]
-
-    return url
+    site = PAsiteList.searchSites.get(siteNum)
+    return site.base_url if site else None
 
 
 def getSearchSearchURL(siteNum):
-    url = None
-    if PAsiteList.searchSites[siteNum]:
-        url = PAsiteList.searchSites[siteNum][2]
-        if not url.startswith('http'):
-            url = getSearchBaseURL(siteNum) + url
-
-    return url
+    site = PAsiteList.searchSites.get(siteNum)
+    if not site:
+        return None
+    return site.search_path if site.search_path.startswith("http") else site.base_url + site.search_path
 
 
 def getSiteNumByFilter(searchFilter):
@@ -47,12 +38,28 @@ def getSiteNumByFilter(searchFilter):
     return None
 
 
-def getSearchSettings(mediaTitle):
+def getSearchSettings(mediaTitle, filename):
+    plexScannerBlacklist = map(str.strip, map(str.lower, Prefs['blacklist_list'].split(',')))
+
+    if filename and Prefs['blacklist_enable']:
+        cleanFilename = re.sub(r'\W', ' ', filename.rsplit('/', 1)[-1].lower()).strip().split()
+        splitMediaTitle = mediaTitle.split()
+
+        for word in plexScannerBlacklist:
+            if word in cleanFilename:
+                Log('Restoring %s to SearchTitle' % word)
+
+                for idx in [i for i, x in enumerate(cleanFilename) if x == word]:
+                    replaceWord = splitMediaTitle[map(str.lower, splitMediaTitle).index(cleanFilename[idx - 1])]
+                    splitMediaTitle[map(str.lower, splitMediaTitle).index(cleanFilename[idx - 1])] = '%s %s' % (replaceWord, word)
+
+                mediaTitle = ' '.join(splitMediaTitle)
+
     Log('mediaTitle w/ possible abbreviation: %s' % mediaTitle)
 
     for abbreviation, full in PAsiteList.abbreviations:
         r = re.compile(abbreviation, flags=re.IGNORECASE)
-        if r.match(mediaTitle):
+        if r.match(mediaTitle) and not mediaTitle.lower().startswith(full.lower()):
             mediaTitle = r.sub(full, mediaTitle, 1)
             break
 
@@ -131,11 +138,20 @@ def posterAlreadyExists(posterUrl, metadata):
         if url.lower() == posterUrl.lower():
             Log('Found %s in posters collection' % posterUrl)
             return True
-        else:
-            pass
 
     for url in metadata.art.keys():
         if url.lower() == posterUrl.lower():
+            Log('Found %s in art collection' % posterUrl)
+            return True
+
+    return False
+
+
+def posterOnlyAlreadyExists(posterUrl, metadata):
+    posterUrl = PAutils.getClearURL(posterUrl)
+    for url in metadata.posters.keys():
+        if url.lower() == posterUrl.lower():
+            Log('Found %s in posters collection' % posterUrl)
             return True
 
     return False

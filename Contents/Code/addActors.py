@@ -39,7 +39,7 @@ def search(results, lang, siteNum, searchData):
     return results
 
 
-def update(metadata, lang, siteNum, movieGenres, movieActors, art):
+def update(metadata, lang, siteNum, movieGenres, movieActors, movieCollections, art):
     metadata_id = str(metadata.id).split('|')
     sceneActors = PAutils.Decode(metadata_id[0])
     sceneDate = metadata_id[2]
@@ -58,12 +58,11 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
     # Studio
     if siteName:
         metadata.studio = siteName
-        metadata.collections.add(siteName)
+        movieCollections.addCollection(siteName)
 
     # Tagline and Collection(s)
-    metadata.collections.clear()
     tagline = 'Actors Manually Added'
-    metadata.collections.add(tagline)
+    movieCollections.addCollection(tagline)
 
     # Release Date
     if sceneDate:
@@ -72,14 +71,12 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
         metadata.year = metadata.originally_available_at.year
 
     # Genres
-    movieGenres.clearGenres()
     for genreLink in sceneGenres.split(','):
         genreName = genreLink.strip()
 
         movieGenres.addGenre(genreName)
 
-    # Actors
-    movieActors.clearActors()
+    # Actor(s)
     for actorLink in sceneActors.split(','):
         actorName = actorLink.strip()
         actorPhotoURL = ''

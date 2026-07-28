@@ -21,7 +21,7 @@ def search(results, lang, siteNum, searchData):
     return results
 
 
-def update(metadata, lang, siteNum, movieGenres, movieActors, art):
+def update(metadata, lang, siteNum, movieGenres, movieActors, movieCollections, art):
     metadata_id = str(metadata.id).split('|')
     sceneURL = PAutils.Decode(metadata_id[0])
     if not sceneURL.startswith('http'):
@@ -35,19 +35,13 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
     # Summary
     metadata.summary = detailsPageElements.xpath('//div[@class="info-video-description"]//p')[0].text_content().strip()
 
-    # Director
-    metadata.directors.clear()
-    director = metadata.directors.new()
-    director.name = 'Markus Dupree'
-
     # Studio
     metadata.studio = PAsearchSites.getSearchSiteName(siteNum)
 
-    # Tagline and Collection
-    metadata.collections.clear()
+    # Tagline and Collection(s)
     tagline = PAsearchSites.getSearchSiteName(siteNum)
     metadata.tagline = tagline
-    metadata.collections.add(tagline)
+    movieCollections.addCollection(tagline)
 
     # Release Date
     date = detailsPageElements.xpath('//ul[@class="list-unstyled info-video-details"]//li[1]//span')
@@ -63,8 +57,7 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
 
         movieGenres.addGenre(genreName)
 
-    # Actors
-    movieActors.clearActors()
+    # Actor(s)
     actors = detailsPageElements.xpath('//div[@class="info-video-models"]//a')
     for actorLink in actors:
         actorName = actorLink.text_content()
@@ -75,6 +68,10 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
         actorPhotoURL = detailsActorPage.xpath('//div[@class="m-images"]//img/@src')[0]
 
         movieActors.addActor(actorName, actorPhotoURL)
+
+    # Director
+    directorName = 'Markus Dupree'
+    movieActors.addDirector(directorName, '')
 
     # Posters/Background
     xpaths = [

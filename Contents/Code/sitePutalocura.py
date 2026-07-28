@@ -5,7 +5,7 @@ import PAutils
 def search(results, lang, siteNum, searchData):
     searchResults = []
 
-    googleResults = PAutils.getFromGoogleSearch(searchData.title, siteNum, lang='enes')
+    googleResults = PAutils.getFromSearchEngine(searchData.title, siteNum, lang='enes')
     for sceneURL in googleResults:
         sceneURL = sceneURL.replace('index.php/', '')
         sceneURL = sceneURL.replace('es/', '')
@@ -47,7 +47,7 @@ def search(results, lang, siteNum, searchData):
     return results
 
 
-def update(metadata, lang, siteNum, movieGenres, movieActors, art):
+def update(metadata, lang, siteNum, movieGenres, movieActors, movieCollections, art):
     metadata_id = str(metadata.id).split('|')
     sceneURL = PAutils.Decode(metadata_id[0])
 
@@ -64,20 +64,17 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
     metadata.summary = detailsPageElements.xpath('//div[@class="description clearfix"]')[0].text_content().split(':')[-1].strip().replace('\n', ' ')
 
     # Tagline and Collection(s)
-    metadata.collections.clear()
-    tagline = PAsearchSites.getSearchSiteName(siteNum).strip()
+    tagline = PAsearchSites.getSearchSiteName(siteNum)
     metadata.studio = tagline
-    metadata.collections.add(tagline)
+    movieCollections.addCollection(tagline)
 
     # Genres
-    movieGenres.clearGenres()
     for genreLink in detailsPageElements.xpath('//div[@class="categories"]/a'):
         genreName = genreLink.text_content().strip()
 
         movieGenres.addGenre(genreName)
 
-    # Actors
-    movieActors.clearActors()
+    # Actor(s)
     if '/en/' in sceneURL:
         if '&' in metadata.title:
             actors = metadata.title.split('&')

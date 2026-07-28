@@ -32,7 +32,7 @@ def search(results, lang, siteNum, searchData):
     return results
 
 
-def update(metadata, lang, siteNum, movieGenres, movieActors, art):
+def update(metadata, lang, siteNum, movieGenres, movieActors, movieCollections, art):
     metadata_id = str(metadata.id).split('|')
     sceneURL = PAutils.Decode(metadata_id[0])
     if not sceneURL.startswith('http'):
@@ -49,10 +49,9 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
     metadata.studio = PAsearchSites.getSearchSiteName(siteNum)
 
     # Tagline and Collection(s)
-    metadata.collections.clear()
     tagline = PAsearchSites.getSearchSiteName(siteNum)
     metadata.tagline = tagline
-    metadata.collections.add(tagline)
+    movieCollections.addCollection(tagline)
 
     # Release Date
     date = detailsPageElements.xpath('//span[@class="contentFileDate"]')[0].text_content().strip().split(' • ')[0]
@@ -70,7 +69,6 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
         pass
 
     # Genres
-    movieGenres.clearGenres()
 
     # Default Genres
     genres = ['BDSM', 'S&M']
@@ -82,8 +80,7 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
         genreName = genreLink.text_content().strip()
         movieGenres.addGenre(genreName)
 
-    # Actors
-    movieActors.clearActors()
+    # Actor(s)
     siteActors = [
         'abby', 'briana', 'david', 'diamond', 'greta', 'hellia',
         'hilda', 'holly', 'jade', 'jeby', 'jessica', 'keya', 'lilith',

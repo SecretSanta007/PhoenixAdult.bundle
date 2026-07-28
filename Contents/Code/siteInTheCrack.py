@@ -45,7 +45,7 @@ def search(results, lang, siteNum, searchData):
     return results
 
 
-def update(metadata, lang, siteNum, movieGenres, movieActors, art):
+def update(metadata, lang, siteNum, movieGenres, movieActors, movieCollections, art):
     metadata_id = str(metadata.id).split('|')
     sceneURL = PAutils.Decode(metadata_id[0])
     if not sceneURL.startswith('http'):
@@ -64,13 +64,11 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
     metadata.studio = 'InTheCrack'
 
     # Tagline and Collection(s)
-    metadata.collections.clear()
-    tagline = PAsearchSites.getSearchSiteName(siteNum).strip()
+    tagline = PAsearchSites.getSearchSiteName(siteNum)
     metadata.tagline = tagline
-    metadata.collections.add(tagline)
+    movieCollections.addCollection(tagline)
 
     # Genres
-    movieGenres.clearGenres()
     movieGenres.addGenre('Solo')
 
     # Release Date
@@ -80,8 +78,7 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
         metadata.originally_available_at = date_object
         metadata.year = metadata.originally_available_at.year
 
-    # Actors
-    movieActors.clearActors()
+    # Actor(s)
     actorstr = detailsPageElements.xpath('//title')[0].text_content().split('#')[1]
     actorstr = (''.join(i for i in list(actorstr) if not i.isdigit())).strip()
     actorstr = actorstr.replace(',', '&')

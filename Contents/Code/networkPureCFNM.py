@@ -53,17 +53,13 @@ def search(results, lang, siteNum, searchData):
     return results
 
 
-def update(metadata, lang, siteNum, movieGenres, movieActors, art):
+def update(metadata, lang, siteNum, movieGenres, movieActors, movieCollections, art):
     metadata_id = str(metadata.id).split('|')
     sceneTitle = PAutils.Decode(metadata_id[0])
     sceneDescription = PAutils.Decode(metadata_id[2])
     sceneDate = metadata_id[3]
     sceneActors = metadata_id[4]
     scenePoster = PAutils.Decode(metadata_id[5])
-
-    metadata.collections.clear()
-    movieGenres.clearGenres()
-    movieActors.clearActors()
 
     # Title
     metadata.title = sceneTitle
@@ -75,9 +71,9 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
     metadata.studio = 'PureCFNM'
 
     # Tagline and Collection(s)
-    subSite = PAsearchSites.getSearchSiteName(siteNum)
-    metadata.tagline = subSite
-    metadata.collections.add(subSite)
+    tagline = PAsearchSites.getSearchSiteName(tagline)
+    metadata.tagline = tagline
+    movieCollections.addCollection(tagline)
 
     # Genres
     if subSite.lower() == 'AmateurCFNM'.lower():
@@ -104,7 +100,7 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
     metadata.originally_available_at = date_object
     metadata.year = metadata.originally_available_at.year
 
-    # Actors
+    # Actor(s)
     actors = sceneActors.split(',')
     if actors:
         if len(actors) == 2:
@@ -121,9 +117,7 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
             movieActors.addActor(actorName, actorPhotoURL)
 
     # Posters
-    art = [
-        scenePoster
-    ]
+    art.append(scenePoster)
 
     Log('Artwork found: %d' % len(art))
     for idx, posterUrl in enumerate(art, 1):

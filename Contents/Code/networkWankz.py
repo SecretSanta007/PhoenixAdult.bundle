@@ -19,7 +19,7 @@ def search(results, lang, siteNum, searchData):
     return results
 
 
-def update(metadata, lang, siteNum, movieGenres, movieActors, art):
+def update(metadata, lang, siteNum, movieGenres, movieActors, movieCollections, art):
     metadata_id = str(metadata.id).split('|')
     sceneURL = PAutils.Decode(metadata_id[0])
     if not sceneURL.startswith('http'):
@@ -36,14 +36,16 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
     # Studio
     metadata.studio = 'Wankz'
 
+    # Tagline and Collection(s)
+    movieCollections.addCollection(metadata.studio)
+
     # Release Date
     date = detailsPageElements.xpath('//div[@class="views"]//span')[0].text_content().replace('Added', '').strip()
     date_object = parse(date)
     metadata.originally_available_at = date_object
     metadata.year = metadata.originally_available_at.year
 
-    # Actors
-    movieActors.clearActors()
+    # Actor(s)
     for actorLink in detailsPageElements.xpath('//div[contains(@class, "actors")]//a[@class="model"]'):
         actorName = actorLink.xpath('.//span')[0].text_content().strip()
         actorPhotoURL = actorLink.xpath('.//img/@src')[0]
@@ -51,7 +53,6 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
         movieActors.addActor(actorName, actorPhotoURL)
 
     # Genres
-    movieGenres.clearGenres()
     for genreLink in detailsPageElements.xpath('//a[@class="cat"] | //p[@style]/a'):
         genreName = genreLink.text_content().strip()
 

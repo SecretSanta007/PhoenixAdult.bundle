@@ -20,7 +20,7 @@ def search(results, lang, siteNum, searchData):
     return results
 
 
-def update(metadata, lang, siteNum, movieGenres, movieActors, art):
+def update(metadata, lang, siteNum, movieGenres, movieActors, movieCollections, art):
     metadata_id = str(metadata.id).split('|')
     sceneURL = PAutils.Decode(metadata_id[0])
     if not sceneURL.startswith('http'):
@@ -39,10 +39,9 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
     metadata.studio = 'Playboy Plus'
 
     # Tagline and Collection(s)
-    metadata.collections.clear()
-    tagline = PAsearchSites.getSearchSiteName(siteNum).strip()
+    tagline = PAsearchSites.getSearchSiteName(siteNum)
     metadata.tagline = tagline
-    metadata.collections.add(tagline)
+    movieCollections.addCollection(tagline)
 
     # Release Date
     date = detailsPageElements.xpath('//p[contains(@class, "date")]')[0].text_content().strip()
@@ -51,11 +50,9 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
     metadata.year = metadata.originally_available_at.year
 
     # Genres
-    movieGenres.clearGenres()
     movieGenres.addGenre('Glamour')
 
-    # Actors
-    movieActors.clearActors()
+    # Actor(s)
     for actorLink in detailsPageElements.xpath('//p[@class="contributorName"]//a'):
         actorName = actorLink.text_content().strip()
         actorPhotoURL = ''
@@ -63,10 +60,9 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
         movieActors.addActor(actorName, '')
 
     # Photos
-    art = [
-        scenePoster,
-        detailsPageElements.xpath('//img[contains(@class, "image")]/@data-src')[0].split('?', 1)[0]
-    ]
+    art.append(scenePoster)
+    art.append(detailsPageElements.xpath('//img[contains(@class, "image")]/@data-src')[0].split('?', 1)[0])
+
     for img in detailsPageElements.xpath('//section[@class="gallery"]//img[contains(@class, "image")]/@data-src'):
         art.append(img.split('?', 1)[0])
 

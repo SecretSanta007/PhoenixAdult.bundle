@@ -3,27 +3,40 @@ import PAutils
 
 
 def search(results, lang, siteNum, searchData):
-    searchData.encoded = searchData.encoded + '&year=' + parse(searchData.date).strftime('%Y') if searchData.date else searchData.encoded
-    req = PAutils.HTTPRequest(PAsearchSites.getSearchSearchURL(siteNum) + searchData.encoded)
-    searchResults = HTML.ElementFromString(req.text)
-    for searchResult in searchResults.xpath('//div[contains(@class, "item")]'):
-        sceneURL = searchResult.xpath('.//a/@href')[0]
-        if '/films/' in sceneURL or '/massage/' in sceneURL:
-            curID = PAutils.Encode(sceneURL)
-            titleNoFormatting = searchResult.xpath('.//img/@alt')[0].strip()
-            releaseDate = parse(searchResult.xpath('.//div[@class="details"]/span[last()]')[0].text_content().strip()).strftime('%Y-%m-%d')
+    sceneURL = 'https://www.hegre.com/films/%s' % searchData.title.replace(' ', '-').lower()
+    req = PAutils.HTTPRequest(sceneURL)
 
-            if searchData.date:
-                score = 100 - Util.LevenshteinDistance(searchData.date, releaseDate)
-            else:
-                score = 100 - Util.LevenshteinDistance(searchData.title.lower(), titleNoFormatting.lower())
+    if req.ok:
+        searchResult = HTML.ElementFromString(req.text)
+        curID = PAutils.Encode(sceneURL)
+        titleNoFormatting = searchResult.xpath('//h1')[0].text_content().strip()
+        date = searchResult.xpath('//span[@class="date"]')[0].text_content().strip()
+        releaseDate = parse(date).strftime('%Y-%m-%d')
 
-            results.Append(MetadataSearchResult(id='%s|%d' % (curID, siteNum), name='%s [%s] %s' % (titleNoFormatting, PAsearchSites.getSearchSiteName(siteNum), releaseDate), score=score, lang=lang))
+        results.Append(MetadataSearchResult(id='%s|%d' % (curID, siteNum), name='%s [%s] %s' % (titleNoFormatting, PAsearchSites.getSearchSiteName(siteNum), releaseDate), score=100, lang=lang))
+    else:
+        searchData.encoded = searchData.encoded + ('&year=' + searchData.dateFormat('%Y')) if searchData.date else searchData.encoded
+        req = PAutils.HTTPRequest(PAsearchSites.getSearchSearchURL(siteNum) + searchData.encoded)
+        searchResults = HTML.ElementFromString(req.text)
+        for searchResult in searchResults.xpath('//div[contains(@class, "item")]'):
+            sceneURL = searchResult.xpath('.//a/@href')[0]
+            if '/films/' in sceneURL or '/massage/' in sceneURL:
+                curID = PAutils.Encode(sceneURL)
+                titleNoFormatting = searchResult.xpath('.//img/@alt')[0].strip()
+                date = searchResult.xpath('.//div[@class="details"]/span[last()]')[0].text_content().strip()
+                releaseDate = parse(date).strftime('%Y-%m-%d')
+
+                if searchData.date:
+                    score = 100 - Util.LevenshteinDistance(searchData.date, releaseDate)
+                else:
+                    score = 100 - Util.LevenshteinDistance(searchData.title.lower(), titleNoFormatting.lower())
+
+                results.Append(MetadataSearchResult(id='%s|%d' % (curID, siteNum), name='%s [%s] %s' % (titleNoFormatting, PAsearchSites.getSearchSiteName(siteNum), releaseDate), score=score, lang=lang))
 
     return results
 
 
-def update(metadata, lang, siteNum, movieGenres, movieActors, art):
+def update(metadata, lang, siteNum, movieGenres, movieActors, movieCollections, art):
     metadata_id = str(metadata.id).split('|')
     sceneURL = PAutils.Decode(metadata_id[0])
     if not sceneURL.startswith('http'):
@@ -42,10 +55,9 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
     metadata.studio = 'Hegre'
 
     # Tagline and Collection(s)
-    metadata.collections.clear()
     tagline = PAsearchSites.getSearchSiteName(siteNum)
     metadata.tagline = tagline
-    metadata.collections.add(tagline)
+    movieCollections.addCollection(tagline)
 
     # Release Date
     date = detailsPageElements.xpath('//span[@class="date"]')[0].text_content().strip()
@@ -54,14 +66,12 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
     metadata.year = metadata.originally_available_at.year
 
     # Genres
-    movieGenres.clearGenres()
     for genreLink in detailsPageElements.xpath('//a[@class="tag"]'):
         genreName = genreLink.text_content().strip().lower()
 
         movieGenres.addGenre(genreName)
 
-    # Actors
-    movieActors.clearActors()
+    # Actor(s)
     actors = detailsPageElements.xpath('//a[@class="record-model"]')
     if actors:
         if len(actors) == 3:
@@ -78,9 +88,9 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
             movieActors.addActor(actorName, actorPhotoURL)
 
     # Director
-    director = metadata.directors.new()
-    director.name = 'Petter Hegre'
-    director.photo = 'https://img.discogs.com/TafxhnwJE2nhLodoB6UktY6m0xM=/fit-in/180x264/filters:strip_icc():format(jpeg):mode_rgb():quality(90)/discogs-images/A-2236724-1305622884.jpeg.jpg'
+    directorName = 'Petter Hegre'
+    directorPhoto = 'https://img.discogs.com/TafxhnwJE2nhLodoB6UktY6m0xM=/fit-in/180x264/filters:strip_icc():format(jpeg):mode_rgb():quality(90)/discogs-images/A-2236724-1305622884.jpeg.jpg'
+    movieActors.addDirector(directorName, directorPhoto)
 
     # Posters
     art.append(detailsPageElements.xpath('//meta[@name="twitter:image"]/@content')[0].replace('board-image', 'poster-image').replace('1600x', '640x'))

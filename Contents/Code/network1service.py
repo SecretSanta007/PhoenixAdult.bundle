@@ -1,5 +1,6 @@
 import PAsearchSites
 import PAutils
+from PAdata18ImageSearch import getSceneURLFromData18, getData18Images
 
 
 def get_Token(siteNum):
@@ -48,13 +49,13 @@ def search(results, lang, siteNum, searchData):
         if req:
             searchResults = req.json()['result']
             for searchResult in searchResults:
-                titleNoFormatting = searchResult['title']
+                titleNoFormatting = PAutils.parseTitle(searchResult['title'].replace('ï¿½', '\''), siteNum)
                 releaseDate = parse(searchResult['dateReleased']).strftime('%Y-%m-%d')
                 curID = searchResult['id']
                 siteName = searchResult['brand'].title()
                 subSite = ''
                 if 'collections' in searchResult and searchResult['collections']:
-                    subSite = searchResult['collections'][0]['name']
+                    subSite = searchResult['collections'][0]['name'].strip()
                 siteDisplay = '%s/%s' % (siteName, subSite) if subSite else siteName
 
                 score = 100
@@ -77,7 +78,7 @@ def search(results, lang, siteNum, searchData):
     return results
 
 
-def update(metadata, lang, siteNum, movieGenres, movieActors, art):
+def update(metadata, lang, siteNum, movieGenres, movieActors, movieCollections, art):
     metadata_id = str(metadata.id).split('|')
     sceneID = metadata_id[0]
     sceneType = metadata_id[2]
@@ -91,7 +92,7 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
     detailsPageElements = req.json()['result'][0]
 
     # Title
-    metadata.title = detailsPageElements['title']
+    metadata.title = PAutils.parseTitle(detailsPageElements['title'].strip(), siteNum).replace('ï¿½', '\'')
 
     # Summary
     description = None
@@ -105,15 +106,15 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
         metadata.summary = description
 
     # Studio
-    metadata.studio = detailsPageElements['brand'].title()
+    metadata.studio = PAutils.parseTitle(detailsPageElements['brand'], siteNum)
 
     # Tagline and Collection(s)
-    metadata.collections.clear()
     seriesNames = []
 
     if 'collections' in detailsPageElements and detailsPageElements['collections']:
         for collection in detailsPageElements['collections']:
             seriesNames.append(collection['name'])
+
     if 'parent' in detailsPageElements:
         if 'title' in detailsPageElements['parent']:
             seriesNames.append(detailsPageElements['parent']['title'])
@@ -128,8 +129,11 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
     if not isInCollection:
         seriesNames.insert(0, PAsearchSites.getSearchSiteName(siteNum))
 
+    if seriesName[0] != metadata.studio:
+        metadata.tagline = seriesNames[0]
+
     for seriesName in seriesNames:
-        metadata.collections.add(seriesName)
+        movieCollections.addCollection(seriesName)
 
     # Release Date
     date_object = parse(detailsPageElements['dateReleased'])
@@ -137,15 +141,13 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
     metadata.year = metadata.originally_available_at.year
 
     # Genres
-    movieGenres.clearGenres()
     genres = detailsPageElements['tags']
     for genreLink in genres:
         genreName = genreLink['name']
 
         movieGenres.addGenre(genreName)
 
-    # Actors
-    movieActors.clearActors()
+    # Actor(s)
     actors = detailsPageElements['actors']
     for actorLink in actors:
         actorPageURL = PAsearchSites.getSearchSearchURL(siteNum) + '/v1/actors?id=%d' % actorLink['id']
@@ -155,35 +157,59 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
 
         actorName = actorData['name']
         actorPhotoURL = ''
-        if actorData['images'] and actorData['images']['profile']:
-            actorPhotoURL = actorData['images']['profile']['0']['xs']['url']
 
-        movieActors.addActor(actorName, actorPhotoURL)
+        if 'gender' in actorData:
+            gender = actorData['gender']
+        else:
+            gender = ''
+
+        if actorData['images'] and actorData['images']['profile']:
+            actorPhotoURL = 'https://image-service-ht.project1content.com/%s' % (actorData['images']['profile']['0']['xs']['url'].split('=')[-1].split('/', 1)[-1])
+
+        movieActors.addActor(actorName, actorPhotoURL, gender=gender)
+
+    # Manually Add Actors
+    # Add Actor Based on Scene ID
+    for actor in PAutils.getDictValuesFromKey(actorsDB, detailsPageElements['id']):
+        movieActors.addActor(actor, '')
 
     # Posters
     for imageType in ['poster', 'cover']:
         if imageType in detailsPageElements['images']:
-            for image in detailsPageElements['images'][imageType]:
+            for image in sorted(detailsPageElements['images'][imageType]):
                 if image.isdigit():
-                    art.append(detailsPageElements['images'][imageType][image]['xx']['url'])
+                    art.append('https://image-service-ht.project1content.com/%s' % detailsPageElements['images'][imageType][image]['xx']['url'].split('=')[-1].split('/', 1)[-1])
 
-    Log('Artwork found: %d' % len(art))
-    for idx, posterUrl in enumerate(art, 1):
-        if not PAsearchSites.posterAlreadyExists(posterUrl, metadata):
-            # Download image file for analysis
-            try:
-                image = PAutils.HTTPRequest(posterUrl)
-                im = StringIO(image.content)
-                resized_image = Image.open(im)
-                width, height = resized_image.size
-                # Add the image proxy items to the collection
-                if width > 1:
-                    # Item is a poster
-                    metadata.posters[posterUrl] = Proxy.Media(image.content, sort_order=idx)
-                if width > 100 and width > height:
-                    # Item is an art item
-                    metadata.art[posterUrl] = Proxy.Media(image.content, sort_order=idx)
-            except:
-                pass
+    # Posters from Data18
+    if Prefs['data18_enable']:
+        providers = seriesNames + [metadata.studio]
+        data18Url = getSceneURLFromData18(metadata.title, providers, date_object)
+        if data18Url:
+            getData18Images(data18Url, art, metadata)
+    else:
+        Log('Artwork found: %d' % len(art))
+        for idx, posterUrl in enumerate(art, 1):
+            if not PAsearchSites.posterAlreadyExists(posterUrl, metadata):
+                # Download image file for analysis
+                try:
+                    image = PAutils.HTTPRequest(posterUrl)
+                    im = StringIO(image.content)
+                    resized_image = Image.open(im)
+                    width, height = resized_image.size
+                    # Add the image proxy items to the collection
+                    if width > 1:
+                        # Item is a poster
+                        metadata.posters[posterUrl] = Proxy.Media(image.content, sort_order=idx)
+                    if width > 100 and width > height:
+                        # Item is an art item
+                        metadata.art[posterUrl] = Proxy.Media(image.content, sort_order=idx)
+                except:
+                    pass
 
     return metadata
+
+
+actorsDB = {
+    '9179301': ['Maria Kazi'],
+    '9577871': ['Armani Black'],
+}

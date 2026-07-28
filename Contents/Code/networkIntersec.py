@@ -21,7 +21,7 @@ def search(results, lang, siteNum, searchData):
     return results
 
 
-def update(metadata, lang, siteNum, movieGenres, movieActors, art):
+def update(metadata, lang, siteNum, movieGenres, movieActors, movieCollections, art):
     metadata_id = str(metadata.id).split('|')
     sceneURL = '%s/iod/%s' % (PAsearchSites.getSearchBaseURL(siteNum), PAutils.Decode(metadata_id[0]))
     scenePoster = PAutils.Decode(metadata_id[2])
@@ -38,7 +38,6 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
     metadata.studio = 'Intersec Interactive'
 
     # Tagline and Collection(s)
-    metadata.collections.clear()
     taglineText = detailsPageElements.xpath('//div[contains(@class, "has-text-white-ter")][1]//a[contains(@class, "is-dark")][last()]/text()')[0]
     if 'sexuallybroken' in taglineText:
         tagline = 'Sexually Broken'
@@ -61,7 +60,7 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
     else:
         tagline = 'Intersex'
     metadata.tagline = tagline
-    metadata.collections.add(tagline)
+    movieCollections.addCollection(tagline)
 
     # Release Date
     date = detailsPageElements.xpath('//div[contains(@class, "has-text-white-ter")][1]//span[contains(@class, "is-dark")][1]/text()')[0]
@@ -71,11 +70,9 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
         metadata.year = metadata.originally_available_at.year
 
     # Genres
-    movieGenres.clearGenres()
     movieGenres.addGenre('BDSM')
 
-    # Actors
-    movieActors.clearActors()
+    # Actor(s)
     actors = detailsPageElements.xpath('//div[contains(@class, "has-text-white-ter")][1]//a[contains(@class, "is-dark")][position() < last()]/text()')
     if actors:
         if len(actors) == 3:
@@ -89,9 +86,8 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
             movieActors.addActor(actorName, '')
 
     # Posters
-    art = [
-        scenePoster, detailsPageElements.xpath('//video-js/@poster')[0]
-    ]
+    art.append(scenePoster)
+    art.append(detailsPageElements.xpath('//video-js/@poster')[0])
 
     for img in detailsPageElements.xpath('//figure/img/@src'):
         art.append(img)

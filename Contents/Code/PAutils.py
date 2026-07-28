@@ -2,14 +2,18 @@ import gzip
 import uuid
 
 import googlesearch
+import ddgsearch
 import fake_useragent
 import base58
 import cloudscraper
 import requests
 from requests_toolbelt.utils import dump
 from requests_response import FakeResponse
+from HTMLParser import HTMLParser
 
 import PAsearchSites
+from PAparseTitle import TitleCaseEngine
+from PAcaptchaHelper import CaptchaHelper
 
 UserAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/68.0.3440.106 Safari/537.36'
 
@@ -46,11 +50,10 @@ def flareSolverrRequest(url, method, **kwargs):
     req = HTTPRequest('%s/v1' % Prefs['flaresolverr_endpoint'], headers={'Content-Type': 'application/json'}, params=json.dumps(req_params), timeout=60, bypass=False)
     if req.ok:
         data = req.json()['solution']
-        headers = data['headers']
-        headers['User-Agent'] = data['userAgent']
+        headers = {'User-Agent': data['userAgent']}
         cookies = {cookie['name']: cookie['value'] for cookie in data['cookies']}
 
-        return FakeResponse(req, url, int(data['headers']['status']), data['response'], headers, cookies)
+        return FakeResponse(req, url, data['status'], data['response'], headers, cookies)
 
     return None
 
@@ -207,8 +210,7 @@ def HTTPRequest(url, method='GET', **kwargs):
     return req
 
 
-def getFromGoogleSearch(searchText, site='', **kwargs):
-    stop = kwargs.pop('stop', 10)
+def getFromSearchEngine(searchText, site='', **kwargs):
     lang = kwargs.pop('lang', 'en')
 
     if isinstance(site, int):
@@ -216,21 +218,28 @@ def getFromGoogleSearch(searchText, site='', **kwargs):
         if site.startswith('www.'):
             site = site.replace('www.', '', 1)
 
-    googleResults = []
+    results = []
     searchTerm = 'site:%s %s' % (site, searchText) if site else searchText
 
     if not searchText:
-        return googleResults
+        return results
 
-    Log('Using Google Search "%s"' % searchTerm)
-
+    Log('Using Google Search "%s"' % searchText)
     try:
-        googleResults = list(googlesearch.search(searchTerm, stop=stop, lang=lang, user_agent=getUserAgent()))
+        results = list(googlesearch.search(searchText, site, lang=lang, sleep_interval=1))
+        if not results:
+            raise ValueError("No Results")
     except:
         Log('Google Search Error')
-        pass
+        Log('Using Duck Duck Go Search "%s"' % searchTerm)
+        try:
+            results = list(ddgsearch.search(searchTerm, site, lang=lang, sleep_interval=1))
+            if not results:
+                raise ValueError("No Results")
+        except:
+            Log('DDGS Search Error')
 
-    return googleResults
+    return results
 
 
 def Encode(text):
@@ -250,32 +259,39 @@ def Decode(text):
 
 
 def getClearURL(url):
-    newURL = url
-    if url.startswith('http'):
-        url = urlparse.urlparse(url)
-        path = url.path
+    if not url.startswith('http'):
+        return url
 
-        while '//' in path:
-            path = path.replace('//', '/')
+    parsed = urlparse.urlparse(url)
+    path = parsed.path.replace('//', '/')
 
-        newURL = '%s://%s%s' % (url.scheme, url.netloc, path)
-        if url.query:
-            newURL += '?%s' % url.query
+    # Rebuild URL
+    new_url = '%s://%s%s' % (parsed.scheme, parsed.netloc, path)
 
-    return newURL
+    if parsed.query:
+        new_url += '?' + parsed.query
+
+    return new_url
 
 
 def saveRequest(url, req):
+    # Build dated debug directory
     debug_dir = os.path.join('debug_data', datetime.now().strftime('%d-%m-%Y'))
-    debug_dir = os.path.realpath(debug_dir)
+
     if not os.path.exists(debug_dir):
-        os.makedirs(debug_dir)
+        try:
+            os.makedirs(debug_dir)
+        except OSError:
+            pass
 
-    raw_http = '< Target URL: "%s"\r\n\r\n' % url
-    raw_http += dump.dump_all(req).decode('UTF-8', errors='replace')
+    # Build raw HTTP dump
+    raw_http = '\r\n'.join(['< Target URL: "%s"' % url, '', dump.dump_all(req).decode('UTF-8', 'replace')])
 
-    file_name = '%s.gz' % uuid.uuid4().hex
-    with gzip.open(os.path.join(debug_dir, file_name), 'wb') as f:
+    # Create gzip file
+    file_name = uuid.uuid4().hex + '.gz'
+    file_path = os.path.join(debug_dir, file_name)
+
+    with gzip.open(file_path, 'wb') as f:
         f.write(raw_http.encode('UTF-8'))
 
     Log('GZip request saved as "%s"' % file_name)
@@ -283,71 +299,14 @@ def saveRequest(url, req):
     return True
 
 
-def parseTitle(s, siteNum):
-    s = re.sub(r'w\/(?!\s)', 'w/ ', s, flags=re.IGNORECASE)
-    s = re.sub(r'\,(?!\s)', ', ', s)
-    s = s.replace('_', ' ')
-    word_list = re.split(' ', s)
-
-    firstword = parseWord(word_list[0], siteNum)
-    if len(firstword) > 1:
-        firstword = manualWordFix(firstword)
-        firstword = firstword[0].capitalize() + firstword[1:]
-    else:
-        firstword = firstword.capitalize()
-
-    final = [firstword]
-
-    for word in word_list[1:]:
-        final.append(parseWord(word, siteNum))
-
-    output = ' '.join(final)
-
-    # Add space after a punctuation if missing
-    output = re.sub(r'(!|:|\?|\.|,)(?=\w)(?!(co\b|net\b|com\b|org\b))', lambda m: m.group(0) + ' ', output, flags=re.IGNORECASE)
-    # Remove single period at end of title
-    output = re.sub(r'\b(?:(?<=\S.)(?<=\w)(?:\.))$', '', output)
-    # Remove space between word and punctuation
-    output = re.sub(r'\s+(?=[.,!\":])', '', output)
-    # Override lowercase if word follows a punctuation
-    output = re.sub(r'(?<=!|:|\?|\.|-)(\s)(\S)', lambda m: m.group(1) + m.group(2).upper(), output)
-    # Override lowercase if word follows a parenthesis
-    output = re.sub(r'(?<=\()(\w)(\W)', lambda m: m.group(1).upper() + m.group(2), output)
-    # Override lowercase if last word
-    output = re.sub(r'\S+$', lambda m: m.group(0)[0].capitalize() + m.group(0)[1:], output)
-
-    return output
+def parseTitle(s, siteNum, title_type='title'):
+    engine = TitleCaseEngine(title_type, debug=Prefs['debug_enable'])
+    return engine.parse_title(s, siteNum)
 
 
-def parseWord(word, siteNum):
-    lower_exceptions = ['a', 'v', 'y', 'an', 'of', 'the', 'and', 'for', 'to', 'onto', 'but', 'or', 'nor', 'at', 'with', 'vs', 'in', 'on']
-    upper_exceptions = ['bbc', 'xxx', 'bbw', 'bf', 'bff', 'bts', 'pov', 'dp', 'gf', 'bj', 'wtf', 'cfnm', 'bwc', 'fm', 'tv', 'ai', 'hd', 'milf', 'gilf', 'dilf', 'dtf', 'zz', 'xxxl']
-    letter_exceptions = ['A', 'V', 'Y']
-    symbolsClean = ['-', '/', '.', '+', '\'']
-    symbolsEsc = ['-', '/', '\.', '\+', '\'']
-    sitename = PAsearchSites.getSearchSiteName(siteNum).replace(' ', '')
-
-    pattern = re.compile(r'\W')
-    cleanWord = re.sub(pattern, '', word)
-
-    if any(symbol in word for symbol in symbolsClean):
-        for idx, symbol in enumerate(symbolsClean, 0):
-            if symbol in word:
-                word = parseTitleSymbol(word, siteNum, symbolsEsc[idx])
-    elif cleanWord.lower() in upper_exceptions:
-        word = word.upper()
-    elif cleanWord.isupper() and cleanWord not in letter_exceptions:
-        word = word.upper()
-    elif sitename.lower() == word.lower():
-        word = sitename
-    elif not (cleanWord.islower() or cleanWord.isupper() or cleanWord.lower() in lower_exceptions):
-        pass
-    else:
-        word = word.lower() if cleanWord.lower() in lower_exceptions else word.capitalize()
-
-    word = manualWordFix(word)
-
-    return word
+def nCookies(siteNum):
+    helper = CaptchaHelper(debug=Prefs['debug_enable'])
+    return helper.get_verified_cookies(PAsearchSites.getSearchBaseURL(siteNum))
 
 
 def any(s):
@@ -357,48 +316,52 @@ def any(s):
     return False
 
 
-def parseTitleSymbol(word, siteNum, symbol):
-    pattern = re.compile(r'\W')
-    word_list = re.split(symbol, word)
-    symbols = ['-', '/', '\.', '\+']
+def cleanSummary(summary):
+    replace = [(r'“', '\"'), (r'”', '\"'), (r'’', '\''), (r'W/', 'w/'), (r'A\.\sJ\.', 'A.J.'), (r'T\.\sJ\.', 'T.J.'), (r'(?<!\S)AJ(?!\S)', 'A.J.'), ('\xc2\xa0', ' ')]
 
-    firstword = parseWord(word_list[0], siteNum)
-    if len(firstword) > 1:
-        firstword = firstword[0].capitalize() + firstword[1:]
-    else:
-        firstword = firstword.upper()
-    nhword = firstword + symbol.replace('\\', '')
+    # Initialize to first word only being capitalized
+    summary = summary.lower().capitalize()
+    # Replace common issues
+    for value in replace:
+        summary = re.sub(value[0], value[1], summary, flags=re.IGNORECASE)
+    # Add space after a punctuation if missing
+    summary = re.sub(r'(?=[\!|\:|\?|\.](?=(\w{1,}))\b)\S(?!(co\b|net\b|com\b|org\b|porn\b|E\d|xxx\b))', lambda m: m.group(0) + ' ', summary, flags=re.IGNORECASE)
+    # Remove space between word and punctuation
+    summary = re.sub(r'\s+(?=[.,!:\'\)])', '', summary)
+    # Remove space between punctuation and word
+    summary = re.sub(r'(?<=[#\(])\s+', '', summary)
+    # Override lowercase if word follows a punctuation
+    summary = re.sub(ur'(?<!vs\.)(?<=!|:|\?|\.)(\s)(\S)', lambda m: m.group(1) + m.group(2).upper(), summary)
+    # Add period to end of summary if no other punctuation present
+    if re.search(r'.$(?<=(!|\.|\?))', summary) is None:
+        summary = summary + '.'
 
-    for idx, hword in enumerate(word_list[1:], 1):
-        if symbol in symbols:
-            if len(hword) > 1:
-                nhword += parseWord(hword, siteNum)
-            else:
-                nhword += hword.capitalize()
-        elif len(re.sub(pattern, '', hword)) > 2:
-            nhword += parseWord(hword, siteNum)
-        else:
-            nhword += hword
-
-        if idx != len(word_list) - 1:
-            nhword += symbol.replace('\\', '')
-    return nhword
+    return summary
 
 
 def manualWordFix(word):
-    exceptions = ['im', 'theyll', 'cant', 'ive', 'shes', 'theyre', 'tshirt', 'dont', 'wasnt', 'youre', 'ill', 'whats', 'didnt', 'isnt', 'senor', 'senorita', 'thats', 'gstring', 'milfs', 'oreilly']
-    corrections = ['I\'m', 'They\'ll', 'Can\'t', 'I\'ve', 'She\'s', 'They\'re', 'T-Shirt', 'Don\'t', 'Wasn\'t', 'You\'re', 'I\'ll', 'What\'s', 'Didn\'t', 'Isn\'t', 'Señor', 'Señorita', 'That\'s', 'G-String', 'MILFs', 'O\'Reilly']
+    corrections_map = {
+        'im': 'I\'m', 'theyll': 'They\'ll', 'cant': 'Can\'t', 'ive': 'I\'ve', 'shes': 'She\'s', 'theyre': 'They\'re', 'tshirt': 'T-Shirt', 'dont': 'Don\'t',
+        'wasnt': 'Wasn\'t', 'youre': 'You\'re', 'ill': 'I\'ll', 'whats': 'What\'s', 'didnt': 'Didn\'t', 'isnt': 'Isn\'t', 'senor': 'Señor', 'senorita': 'Señorita',
+        'thats': 'That\'s', 'gstring': 'G-String', 'milfs': 'MILFs', 'oreilly': 'O\'Reilly', 'bangbros': 'BangBros', 'bday': 'B-Day', 'dms': 'DMs', 'bffs': 'BFFs',
+        'ohmy': 'OhMy', 'wont': 'Won\'t', 'whos': 'Who\'s', 'shouldnt': 'Shouldn\'t', 'lasirena': 'LaSirena', 'espanol': 'español', 'jmac': 'J-Mac', 'youd': 'You\'d',
+        'redwolf': 'RedWolf'
+    }
 
-    if word.lower() in exceptions:
-        for correction in corrections:
-            if word.lower() == correction.lower().replace('\'', '').replace('-', '').replace('ñ', 'n'):
-                return correction
+    pattern = re.compile(r'\d|\W')
+    cleanWord = re.sub(pattern, '', word)
+    cleanWordLower = cleanWord.lower()
+
+    if cleanWordLower in corrections_map:
+        correction = corrections_map[cleanWordLower]
+        return re.sub(re.escape(cleanWord), correction, word, flags=re.IGNORECASE)
 
     return word
 
 
 def cleanHTML(text):
     data = re.sub(r'<.*?>', '', text)
+    data = HTMLParser().unescape(data)
     data = data.strip()
 
     return data
@@ -409,6 +372,7 @@ def getCleanSearchTitle(title):
         'RARBG', 'COM', r'\d{3,4}x\d{3,4}', 'HEVC', r'H\d{3}', 'AVC', r'\dK',
         r'\d{3,4}p', 'TOWN.AG_', 'XXX', 'MP4', 'KLEENEX', 'SD', 'HD',
         'KTR', 'IEVA', 'WRB', 'NBQ', 'ForeverAloneDude', r'X\d{3}', 'SoSuMi',
+        'sexors', 'gush', '3dh', 'lr', 'int'
     )
 
     for trash in trashTitle:
@@ -428,3 +392,92 @@ def getSearchTitleStrip(title):
             title = title.rsplit(Prefs['strip_symbol_reverse'], 1)[-1]
 
     return title.strip()
+
+
+def getDictValuesFromKey(dictDB, identifier):
+    ident = str(identifier).lower()
+
+    for key, values in dictDB.items():
+        key_items = key if isinstance(key, tuple) else (key,)
+
+        for item in key_items:
+            if str(item).lower() == ident:
+                return values
+
+    return []
+
+
+def getDictKeyFromValues(dictDB, identifier):
+    ident = str(identifier).lower()
+    result = []
+
+    for key, values in dictDB.items():
+        lower_values = [str(v).lower() for v in values]
+
+        if ident in lower_values:
+            result.append(key)
+
+    return result
+
+
+class MLStripper(HTMLParser):
+    def __init__(self):
+        HTMLParser.__init__(self)
+        self.text = StringIO()
+        self.skip_flag = False  # skip script/style content
+
+    def handle_starttag(self, tag, attrs):
+        if tag in ('script', 'style'):
+            self.skip_flag = True
+
+    def handle_endtag(self, tag):
+        if tag in ('script', 'style'):
+            self.skip_flag = False
+
+    def handle_data(self, data):
+        if not self.skip_flag:
+            self.text.write(data)
+
+    def handle_entityref(self, name):
+        try:
+            from htmlentitydefs import name2codepoint
+        except ImportError:
+            from html.entities import name2codepoint
+        cp = name2codepoint.get(name)
+        if cp:
+            self.text.write(unichr(cp))
+
+    def handle_charref(self, name):
+        try:
+            if name.startswith('x'):
+                cp = int(name[1:], 16)
+            else:
+                cp = int(name)
+            self.text.write(unichr(cp))
+        except:
+            pass
+
+    def get_data(self):
+        return self.text.getvalue()
+
+    def get_data(self):
+        return self.text.getvalue()
+
+
+def strip_tags(html):
+    s = MLStripper()
+    s.feed(html)
+    return s.get_data()
+
+
+def functionTimer(fun, msg, *args):
+    start_time = time.time()
+    output = fun(*args)
+    end_time = time.time()
+    Log('%s: %s' % (msg, str(timedelta(seconds=(end_time - start_time)))))
+    return output
+
+
+def rreplace(s, r, n, o):
+    li = s.rsplit(r, o)
+    return n.join(li)

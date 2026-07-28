@@ -24,7 +24,7 @@ def search(results, lang, siteNum, searchData):
     return results
 
 
-def update(metadata, lang, siteNum, movieGenres, movieActors, art):
+def update(metadata, lang, siteNum, movieGenres, movieActors, movieCollections, art):
     metadata_id = str(metadata.id).split('|')
     sceneURL = PAutils.Decode(metadata_id[0])
     if not sceneURL.startswith('http'):
@@ -42,10 +42,9 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
     metadata.studio = 'MetArt'
 
     # Tagline and Collection(s)
-    metadata.collections.clear()
     tagline = PAsearchSites.getSearchSiteName(siteNum)
     metadata.tagline = tagline
-    metadata.collections.add(tagline)
+    movieCollections.addCollection(tagline)
 
     # Release Date
     date = detailsPageElements['publishedAt']
@@ -54,33 +53,30 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
     metadata.year = metadata.originally_available_at.year
 
     # Genres
-    movieGenres.clearGenres()
     for genreLink in detailsPageElements['tags']:
         genreName = genreLink.title()
 
         movieGenres.addGenre(genreName)
     movieGenres.addGenre('Glamorous')
 
-    # Actors
-    movieActors.clearActors()
+    # Actor(s)
     for actorLink in detailsPageElements['models']:
         actorName = actorLink['name']
         actorPhotoURL = PAsearchSites.getSearchBaseURL(siteNum) + actorLink['headshotImagePath']
 
         movieActors.addActor(actorName, actorPhotoURL)
 
-    # Director
-    director = metadata.directors.new()
-    for dirname in detailsPageElements['photographers']:
-        director.name = dirname['name']
+    # Director(s)
+    for directorLink in detailsPageElements['photographers']:
+        directorName = directorLink['name']
+
+        movieActors.addDirector(directorName, '')
 
     # Posters
     siteUUID = detailsPageElements['siteUUID']
     CDNurl = 'https://cdn.metartnetwork.com/' + siteUUID
-    art = [
-        CDNurl + detailsPageElements['coverImagePath'],
-        CDNurl + detailsPageElements['splashImagePath']
-    ]
+    art.append(CDNurl + detailsPageElements['coverImagePath'])
+    art.append(CDNurl + detailsPageElements['splashImagePath'])
 
     Log('Artwork found: %d' % len(art))
     for idx, posterUrl in enumerate(art, 1):

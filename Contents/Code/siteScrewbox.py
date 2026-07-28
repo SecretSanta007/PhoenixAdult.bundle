@@ -18,7 +18,7 @@ def search(results, lang, siteNum, searchData):
     return results
 
 
-def update(metadata, lang, siteNum, movieGenres, movieActors, art):
+def update(metadata, lang, siteNum, movieGenres, movieActors, movieCollections, art):
     metadata_id = str(metadata.id).split('|')
     sceneURL = PAutils.Decode(metadata_id[0])
     if not sceneURL.startswith('http'):
@@ -39,9 +39,7 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
     metadata.studio = 'Screwbox'
 
     # Tagline and Collection(s)
-    metadata.collections.clear()
-    metadata.tagline = metadata.studio
-    metadata.collections.add(metadata.studio)
+    movieCollections.addCollection(metadata.studio)
 
     # Release Date
     date = detailsPageElements.xpath('//ul[@class="more-info"]//li[2]')[0].text_content().replace('RELEASE DATE:', '').strip()
@@ -50,14 +48,12 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
     metadata.year = metadata.originally_available_at.year
 
     # Genres
-    movieGenres.clearGenres()
     for genreLink in detailsPageElements.xpath('//ul[@class="more-info"]//li[3]//a'):
         genreName = genreLink.text_content().title()
 
         movieGenres.addGenre(genreName)
 
-    # Actors
-    movieActors.clearActors()
+    # Actor(s)
     for actorLink in detailsPageElements.xpath('//ul[@class="more-info"]//li[1]//a'):
         actorName = actorLink.text_content().strip().title()
 

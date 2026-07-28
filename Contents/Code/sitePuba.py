@@ -14,7 +14,7 @@ def search(results, lang, siteNum, searchData):
         directURL = PAsearchSites.getSearchSearchURL(siteNum) + 'show_video.php?galid=' + sceneID
         searchResults.append(directURL)
 
-    googleResults = PAutils.getFromGoogleSearch(searchData.title, siteNum)
+    googleResults = PAutils.getFromSearchEngine(searchData.title, siteNum)
     for sceneURL in googleResults:
         if ('show_video' in sceneURL and 'index' not in sceneURL) and sceneURL not in searchResults:
             searchResults.append(sceneURL)
@@ -35,7 +35,7 @@ def search(results, lang, siteNum, searchData):
     return results
 
 
-def update(metadata, lang, siteNum, movieGenres, movieActors, art):
+def update(metadata, lang, siteNum, movieGenres, movieActors, movieCollections, art):
     metadata_id = str(metadata.id).split('|')
     sceneURL = PAutils.Decode(metadata_id[0])
     req = PAutils.HTTPRequest(sceneURL, headers={'Referer': 'https://www.puba.com/pornstarnetwork/index.php'}, cookies={'PHPSESSID': 'rvo9ieo5bhoh81knnmu88c3lf3'})
@@ -48,19 +48,15 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
     metadata.studio = PAsearchSites.getSearchSiteName(siteNum)
 
     # Tagline and Collection(s)
-    metadata.collections.clear()
-    metadata.tagline = metadata.studio
-    metadata.collections.add(metadata.studio)
+    movieCollections.addCollection(metadata.studio)
 
     # Genres
-    movieGenres.clearGenres()
     genres = detailsPageElements.xpath('//center//div//a[contains(@class, "btn-outline-secondary")]')
     for genre in genres:
         genreName = genre.text_content().strip()
         movieGenres.addGenre(genreName)
 
-    # Actors
-    movieActors.clearActors()
+    # Actor(s)
     actors = detailsPageElements.xpath('//center//div//a[contains(@class, "btn-secondary")]')
     for actor in actors:
         actorName = actor.text_content().strip()

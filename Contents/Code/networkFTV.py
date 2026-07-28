@@ -14,7 +14,7 @@ def search(results, lang, siteNum, searchData):
 
         searchResults.append(directURL)
 
-    googleResults = PAutils.getFromGoogleSearch(searchData.title, siteNum)
+    googleResults = PAutils.getFromSearchEngine(searchData.title, siteNum)
     for sceneURL in googleResults:
         if ('/update/' in sceneURL) and sceneURL not in searchResults:
             searchResults.append(sceneURL)
@@ -41,7 +41,7 @@ def search(results, lang, siteNum, searchData):
     return results
 
 
-def update(metadata, lang, siteNum, movieGenres, movieActors, art):
+def update(metadata, lang, siteNum, movieGenres, movieActors, movieCollections, art):
     metadata_id = str(metadata.id).split('|')
     sceneURL = PAutils.Decode(metadata_id[0])
     sceneID = 0
@@ -64,10 +64,9 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
     metadata.studio = 'First Time Videos'
 
     # Tagline and Collection(s)
-    metadata.collections.clear()
-    tagline = PAsearchSites.getSearchSiteName(siteNum).strip()
+    tagline = PAsearchSites.getSearchSiteName(siteNum)
     metadata.tagline = tagline
-    metadata.collections.add(tagline)
+    movieCollections.addCollection(tagline)
 
     # Release Date
     date = titleDate[-1].replace('!', '').strip()
@@ -77,7 +76,6 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
         metadata.year = metadata.originally_available_at.year
 
     # Genres
-    movieGenres.clearGenres()
     genres = []
     if tagline == 'FTVGirls':
         genres = ['Teen', 'Solo', 'Public']
@@ -87,8 +85,7 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
     for genreName in genres:
         movieGenres.addGenre(genreName)
 
-    # Actors
-    movieActors.clearActors()
+    # Actor(s)
     actors = []
 
     for idx, actorLink in enumerate(detailsPageElements.xpath('//div[@id="ModelDescription"]//h1')):
@@ -112,7 +109,7 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
     ]
 
     scenes = photoLookup(sceneID)
-    googleResults = PAutils.getFromGoogleSearch(' '.join(actors).strip(), siteNum)
+    googleResults = PAutils.getFromSearchEngine(' '.join(actors).strip(), siteNum)
     for photoURL in googleResults:
         for scene in scenes:
             if ('galleries' in photoURL or 'preview' in photoURL) and (scene in photoURL or scene == 'none'):

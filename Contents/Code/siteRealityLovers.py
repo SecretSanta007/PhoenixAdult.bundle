@@ -27,7 +27,7 @@ def search(results, lang, siteNum, searchData):
     return results
 
 
-def update(metadata, lang, siteNum, movieGenres, movieActors, art):
+def update(metadata, lang, siteNum, movieGenres, movieActors, movieCollections, art):
     metadata_id = str(metadata.id).split('|')
     sceneURL = PAutils.Decode(metadata_id[0])
     if not sceneURL.startswith('http'):
@@ -35,9 +35,6 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
     posterUri = PAutils.Decode(metadata_id[2])
     req = PAutils.HTTPRequest(sceneURL)
     detailsPageElements = HTML.ElementFromString(req.text)
-
-    movieGenres.clearGenres()
-    movieActors.clearActors()
 
     # Title
     metadata.title = detailsPageElements.xpath('//h1[@class="video-detail-name"]')[0].text_content().strip()
@@ -50,9 +47,7 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
     metadata.studio = PAsearchSites.getSearchSiteName(siteNum)
 
     # Tagline and Collection(s)
-    metadata.collections.clear()
-    metadata.tagline = metadata.studio
-    metadata.collections.add(metadata.studio)
+    movieCollections.addCollection(metadata.studio)
 
     # Release Date
     date = detailsPageElements.xpath('//span[@class="videoClip__Details-infoValue"]')[0].text_content().strip()
@@ -66,7 +61,7 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
         genreName = genreLink.text_content().strip().lower()
         movieGenres.addGenre(genreName)
 
-    # Actors
+    # Actor(s)
     actors = detailsPageElements.xpath('//span[@itemprop="actors"]/a')
     for actorLink in detailsPageElements.xpath('//span[@itemprop="actors"]/a'):
         actorName = actorLink.text_content().strip()

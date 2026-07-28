@@ -6,7 +6,7 @@ def search(results, lang, siteNum, searchData):
     directURL = '%s%s.html' % (PAsearchSites.getSearchSearchURL(siteNum), searchData.title.lower().replace(' ', '-'))
     searchResults = [directURL]
 
-    googleResults = PAutils.getFromGoogleSearch(searchData.title, siteNum)
+    googleResults = PAutils.getFromSearchEngine(searchData.title, siteNum)
     for sceneURL in googleResults:
         sceneURL = sceneURL.lower()
         if ('/trailers/' in sceneURL) and sceneURL not in searchResults:
@@ -28,7 +28,7 @@ def search(results, lang, siteNum, searchData):
     return results
 
 
-def update(metadata, lang, siteNum, movieGenres, movieActors, art):
+def update(metadata, lang, siteNum, movieGenres, movieActors, movieCollections, art):
     metadata_id = str(metadata.id).split('|')
     sceneURL = PAutils.Decode(metadata_id[0])
     if not sceneURL.startswith('http'):
@@ -47,10 +47,9 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
     metadata.studio = 'Girls Rimming'
 
     # Tagline and Collection(s)
-    metadata.collections.clear()
-    tagline = PAsearchSites.getSearchSiteName(siteNum).strip()
+    tagline = PAsearchSites.getSearchSiteName(siteNum)
     metadata.tagline = tagline
-    metadata.collections.add(tagline)
+    movieCollections.addCollection(tagline)
 
     # Release Date
     if sceneDate:
@@ -59,7 +58,6 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
         metadata.year = metadata.originally_available_at.year
 
     # Genres
-    movieGenres.clearGenres()
     actors = []
 
     genres = detailsPageElements.xpath('//meta[@name="keywords"]/@content')[0].split(',')
@@ -72,8 +70,7 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
 
     movieGenres.addGenre('Rim Job')
 
-    # Actors
-    movieActors.clearActors()
+    # Actor(s)
     for actorLink in actors:
         actorLink = actorLink.split(' Id ')
         actorName = actorLink[0].strip()
@@ -82,7 +79,7 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
         actorPageURL = '%s/tour/models/%s.html' % (PAsearchSites.getSearchBaseURL(siteNum), actorName.lower().replace(' ', '-'))
         data = PAutils.HTTPRequest(actorPageURL)
         if not data or data == 'Page not found':
-            googleResults = PAutils.getFromGoogleSearch(actorName, siteNum)
+            googleResults = PAutils.getFromSearchEngine(actorName, siteNum)
             for actorURL in googleResults:
                 actorURL = actorURL.lower()
                 if ('/models/' in actorURL):
@@ -95,9 +92,7 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
         movieActors.addActor(actorName, actorPhotoURL)
 
     # Posters
-    art = [
-        detailsPageElements.xpath('//div[@id="fakeplayer"]//img/@src0_3x')[0]
-    ]
+    art.append(detailsPageElements.xpath('//div[@id="fakeplayer"]//img/@src0_3x')[0])
 
     Log('Artwork found: %d' % len(art))
     for idx, posterUrl in enumerate(art, 1):

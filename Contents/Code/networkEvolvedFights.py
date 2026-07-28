@@ -6,7 +6,7 @@ def search(results, lang, siteNum, searchData):
     directURL = PAsearchSites.getSearchSearchURL(siteNum) + searchData.title.replace(' ', '-').lower() + '.html'
 
     searchResults = [directURL]
-    googleResults = PAutils.getFromGoogleSearch(searchData.title, siteNum)
+    googleResults = PAutils.getFromSearchEngine(searchData.title, siteNum)
     for sceneURL in googleResults:
         if ('/updates/' in sceneURL and sceneURL not in searchResults):
             searchResults.append(sceneURL)
@@ -31,7 +31,7 @@ def search(results, lang, siteNum, searchData):
     return results
 
 
-def update(metadata, lang, siteNum, movieGenres, movieActors, art):
+def update(metadata, lang, siteNum, movieGenres, movieActors, movieCollections, art):
     metadata_id = str(metadata.id).split('|')
     sceneURL = PAutils.Decode(metadata_id[0])
     if not sceneURL.startswith('http'):
@@ -48,20 +48,16 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
     # Studio
     metadata.studio = 'Evolved Fights Network'
 
-    # Studio/Tagline/Collection
-    metadata.collections.clear()
-    metadata.tagline = metadata.studio
-    metadata.collections.add(metadata.studio)
+    # Tagline and Collection(s)
+    movieCollections.addCollection(metadata.studio)
 
     # Genres
-    movieGenres.clearGenres()
     for genreLink in detailsPageElements.xpath('//span[(contains(@class, "tour_update_tags"))]/a'):
         genreName = genreLink.text_content().strip()
 
         movieGenres.addGenre(genreName)
 
-    # Actors
-    movieActors.clearActors()
+    # Actor(s)
     for actorLink in detailsPageElements.xpath('//div[(contains(@class, "update_block_info model_update_block_info"))]/span[(contains(@class, "tour_update_models"))]/a'):
         actorName = actorLink.text_content().strip()
         actorPageURL = actorLink.get('href')

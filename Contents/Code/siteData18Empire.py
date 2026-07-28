@@ -102,7 +102,7 @@ def search(results, lang, siteNum, searchData):
                     else:
                         results.Append(MetadataSearchResult(id='%s|%d|%s' % (curID, siteNum, releaseDate), name='%s %s' % (titleNoFormatting, displayDate), score=score, lang=lang))
 
-    googleResults = PAutils.getFromGoogleSearch(searchData.title, siteNum)
+    googleResults = PAutils.getFromSearchEngine(searchData.title, siteNum)
     for movieURL in googleResults:
         if ('/movies/' in movieURL and '.html' not in movieURL and movieURL not in searchResults and movieURL not in siteResults):
             searchResults.append(movieURL)
@@ -171,7 +171,7 @@ def search(results, lang, siteNum, searchData):
     return results
 
 
-def update(metadata, lang, siteNum, movieGenres, movieActors, art):
+def update(metadata, lang, siteNum, movieGenres, movieActors, movieCollections, art):
     splitScene = False
     metadata_id = str(metadata.id).split('|')
     sceneURL = PAutils.Decode(metadata_id[0])
@@ -215,7 +215,6 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
         metadata.studio = studio
 
     # Tagline and Collection(s)
-    metadata.collections.clear()
     try:
         tagline = detailsPageElements.xpath('//p[contains(text(), "A scene from")]/a/text()')[0].strip()
         if ', the' in tagline.lower():
@@ -238,7 +237,7 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
         except:
             tagline = metadata.studio
 
-    metadata.collections.add(tagline)
+    movieCollections.addCollection(tagline)
 
     # Release Date
     if sceneDate:
@@ -247,13 +246,11 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
         metadata.year = metadata.originally_available_at.year
 
     # Genres
-    movieGenres.clearGenres()
     for genreLink in detailsPageElements.xpath('//div[@class="categories"]/a'):
         genreName = genreLink.text_content().strip()
         movieGenres.addGenre(genreName)
 
-    # Actors
-    movieActors.clearActors()
+    # Actor(s)
 
     actors = []
     if splitScene:
@@ -276,14 +273,13 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
             movieActors.addActor(actorName, actorPhotoURL)
 
     # Director
-    metadata.directors.clear()
-    director = metadata.directors.new()
-    try:
-        directorName = detailsPageElements.xpath('//div[@class="director"]/a/text()')[0].text_content().split(':')[2].strip()
-        if not directorName == 'Unknown':
-            director.name = directorName
-    except:
-        pass
+    director = detailsPageElements.xpath('//div[@class="director"]/a/text()')
+    if director:
+        directorLink = director[0].text_content().split(':')[2].strip()
+        if not directorLink == 'Unknown':
+            directorName = directorLink
+
+            movieActors.addDirector(directorName, '')
 
     # Posters
     xpaths = [
@@ -303,7 +299,7 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
         if gallery:
             req = PAutils.HTTPRequest('%s%s' % (PAsearchSites.getSearchBaseURL(siteNum), gallery[0]))
             galleryPageElement = HTML.ElementFromString(req.text)
-            art = art + galleryPageElement.xpath(gallery_image)
+            art.extend(galleryPageElement.xpath(gallery_image))
         if splitScene:
             art.append(detailsPageElements.xpath(scene)[int(metadata_id[3])])
     except:

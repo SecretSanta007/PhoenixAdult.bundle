@@ -9,7 +9,7 @@ def search(results, lang, siteNum, searchData):
 
     if searchData.date:
         Log('*** date search')
-        parent = detailsPageElements.xpath('//tr[.//span[@class="videodate" and text()=\'Date: %s\']]' % searchData.dateFormat('%B %d, %Y'))
+        parent = detailsPageElements.xpath('//tr[.//span[@class="videodate" and contains(text(), "%s")]]' % searchData.dateFormat('%B %d, %Y'))
     elif searchData.title:
         Log('*** title search')
         m = re.search(r'([a-z0-9\&\; ]+) (masturbation|photoshoot|interview|girl-girl action|pov lapdance)', searchData.title, re.IGNORECASE)
@@ -27,7 +27,7 @@ def search(results, lang, siteNum, searchData):
     return results
 
 
-def update(metadata, lang, siteNum, movieGenres, movieActors, art):
+def update(metadata, lang, siteNum, movieGenres, movieActors, movieCollections, art):
     metadata_id = str(metadata.id).split('|')
 
     sceneID = metadata_id[0]
@@ -44,7 +44,7 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
 
     req = PAutils.HTTPRequest(sceneURL)
     detailsPageElements = HTML.ElementFromString(req.text)
-    parentElement = detailsPageElements.xpath('//tr[.//span[@class="videodate" and text()=\'Date: %s\']]' % dateString)[0]
+    parentElement = detailsPageElements.xpath('//tr[.//span[@class="videodate" and contains(text(), "%s")]]' % dateString)[0]
 
     # Components
     model = re.sub(r'ALSAngels.com - (.+)', r'\1', detailsPageElements.xpath('//title')[0].text_content().strip(), flags=re.IGNORECASE)
@@ -60,21 +60,18 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
     metadata.studio = 'ALSAngels'
 
     # Tagline and Collection(s)
-    metadata.collections.clear()
-    tagline = PAsearchSites.getSearchSiteName(siteNum).strip()
+    tagline = PAsearchSites.getSearchSiteName(siteNum)
     metadata.tagline = tagline
-    metadata.collections.add(tagline)
+    movieCollections.addCollection(tagline)
 
     # Release Date
     metadata.originally_available_at = dateObject
     metadata.year = metadata.originally_available_at.year
 
     # Genres
-    movieGenres.clearGenres()
     movieGenres.addGenre(subject)
 
-    # Actors
-    movieActors.clearActors()
+    # Actor(s)
     actorPhotoURL = detailsPageElements.xpath('.//div[@id="modelbioheadshot"]/img/@src')[0].replace('..', searchBaseUrl)
     movieActors.addActor(model, actorPhotoURL)
 

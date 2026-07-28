@@ -57,7 +57,7 @@ def search(results, lang, siteNum, searchData):
     return results
 
 
-def update(metadata, lang, siteNum, movieGenres, movieActors, art):
+def update(metadata, lang, siteNum, movieGenres, movieActors, movieCollections, art):
     metadata_id = str(metadata.id).split('|')
     sceneID = metadata_id[0]
     detailsPageElements = fetchPageContent(siteNum, sceneID)
@@ -72,21 +72,18 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
     metadata.studio = "Killergram"
 
     # Tagline and Collection(s)
-    metadata.collections.clear()
-    tagline = PAsearchSites.getSearchSiteName(siteNum).strip()
+    tagline = PAsearchSites.getSearchSiteName(siteNum)
     metadata.tagline = tagline
-    metadata.collections.add(tagline)
+    movieCollections.addCollection(tagline)
 
     # Release Date
     metadata.originally_available_at = datetime.strptime(extractDate(detailsPageElements), '%d %B %Y')
     metadata.year = metadata.originally_available_at.year
 
     # Genres
-    movieGenres.clearGenres()
     movieGenres.addGenre('British')
 
-    # Actors
-    movieActors.clearActors()
+    # Actor(s)
     for actor in extractActors(detailsPageElements):
         movieActors.addActor(actor, '')
 

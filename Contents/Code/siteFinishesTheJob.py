@@ -30,7 +30,7 @@ def search(results, lang, siteNum, searchData):
     return results
 
 
-def update(metadata, lang, siteNum, movieGenres, movieActors, art):
+def update(metadata, lang, siteNum, movieGenres, movieActors, movieCollections, art):
     metadata_id = str(metadata.id).split('|')
     sceneURL = PAutils.Decode(metadata_id[0])
     if not sceneURL.startswith('http'):
@@ -40,7 +40,7 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
     detailsPageElements = HTML.ElementFromString(req.text)
 
     # Title
-    metadata.title = detailsPageElements.xpath('//h1[@itemprop="name"]')[0].text_content().strip()
+    metadata.title = detailsPageElements.xpath('//span[@itemprop="name"]')[0].text_content().strip()
 
     # Summary
     metadata.summary = detailsPageElements.xpath('//p[@itemprop="description"]')[0].text_content().strip()
@@ -49,10 +49,9 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
     metadata.studio = 'Finishes The Job'
 
     # Tagline and Collection(s)
-    metadata.collections.clear()
     tagline = PAsearchSites.getSearchSiteName(siteNum)
     metadata.tagline = tagline
-    metadata.collections.add(tagline)
+    movieCollections.addCollection(tagline)
 
     # Release Date
     if sceneDate:
@@ -60,16 +59,14 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
         metadata.originally_available_at = date_object
         metadata.year = metadata.originally_available_at.year
 
-    # Actors
-    movieActors.clearActors()
-    actors = detailsPageElements.xpath('//h3[contains(., "Starring")]//a')
+    # Actor(s)
+    actors = detailsPageElements.xpath('//h2[contains(., "Starring")]//a')
     for actorLink in actors:
         actorName = actorLink.text_content().strip()
         actorPhotoURL = ''
         movieActors.addActor(actorName, actorPhotoURL)
 
     # Genres
-    movieGenres.clearGenres()
     genres = detailsPageElements.xpath('//p[contains(., "Categories")]//a')
     for genreLink in genres:
         genreName = genreLink.text_content().strip()

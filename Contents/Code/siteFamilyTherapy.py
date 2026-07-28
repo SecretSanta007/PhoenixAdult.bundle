@@ -51,7 +51,7 @@ def search(results, lang, siteNum, searchData):
     return results
 
 
-def update(metadata, lang, siteNum, movieGenres, movieActors, art):
+def update(metadata, lang, siteNum, movieGenres, movieActors, movieCollections, art):
     metadata_id = str(metadata.id).split('|')
     sceneURL = PAutils.Decode(metadata_id[0])
     siteNum = metadata_id[1]
@@ -103,13 +103,11 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
     metadata.studio = 'Family Therapy'
 
     # Tagline and Collection(s)
-    metadata.collections.clear()
     tagline = 'Family Therapy'
     metadata.tagline = tagline
-    metadata.collections.add(tagline)
+    movieCollections.addCollection(tagline)
 
     # Genres
-    movieGenres.clearGenres()
     genres = detailsPageElements.xpath('//a[@rel="category tag"]/text()')
     for tag in genres:
         movieGenres.addGenre(tag.strip())
@@ -121,12 +119,16 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
         metadata.originally_available_at = date_object
         metadata.year = metadata.originally_available_at.year
 
-    # Actors
-    movieActors.clearActors()
+    # Actor(s)
     for actorLink in detailsPageElements.xpath('//div[@class="entry-content"]/p[contains(text(),"starring") or contains(text(), "Starring")]/text()'):
-        actorName = re.search(r'(?<=[Ss]tarring\s)\w*\s\w*', actorLink).group()
+        actorName = re.search(r'(?<=[Ss]tarring\s)\w*\s\w*(\s&\s\w*\s\w*)*', actorLink).group()
         actorPhotoURL = ''
 
-        movieActors.addActor(actorName, actorPhotoURL)
+        if '&' in actorName:
+            actorNames = actorName.split('&')
+            for name in actorNames:
+                movieActors.addActor(name.strip(), actorPhotoURL)
+        else:
+            movieActors.addActor(actorName, actorPhotoURL)
 
     return metadata

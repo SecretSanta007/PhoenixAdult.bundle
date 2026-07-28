@@ -28,7 +28,7 @@ def search(results, lang, siteNum, searchData):
     return results
 
 
-def update(metadata, lang, siteNum, movieGenres, movieActors, art):
+def update(metadata, lang, siteNum, movieGenres, movieActors, movieCollections, art):
     metadata_id = str(metadata.id).split('|')
     sceneURL = PAutils.Decode(metadata_id[0])
     if not sceneURL.startswith('http'):
@@ -48,11 +48,8 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
     # Studio
     metadata.studio = PAsearchSites.getSearchSiteName(siteNum)
 
-    # Tagline and Collection
-    metadata.collections.clear()
-    tagline = PAsearchSites.getSearchSiteName(siteNum)
-    metadata.tagline = tagline
-    metadata.collections.add(tagline)
+    # Tagline and Collection(s)
+    movieCollections.addCollection(metadata.studio)
 
     # Release Date
     date = sceneData['datePublished']
@@ -62,17 +59,15 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
         metadata.year = metadata.originally_available_at.year
 
     # Genres
-    movieGenres.clearGenres()
     for genreLink in sceneData['keywords'].split(','):
         genreName = genreLink.strip()
 
         movieGenres.addGenre(genreName)
 
-    # Actors
-    movieActors.clearActors()
+    # Actor(s)
     for actorLink in sceneData['actors']:
         actorName = actorLink['name']
-        actorPhotoURL = detailsPageElements.xpath('//div[@class="performerItem"]//a[@href="%s"]//img/@src' % actorLink['url'])[0]
+        actorPhotoURL = detailsPageElements.xpath('//div[@class="model-box"]//a//img/@src')[0]
 
         movieActors.addActor(actorName, actorPhotoURL)
 

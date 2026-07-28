@@ -19,7 +19,7 @@ def search(results, lang, siteNum, searchData):
     return results
 
 
-def update(metadata, lang, siteNum, movieGenres, movieActors, art):
+def update(metadata, lang, siteNum, movieGenres, movieActors, movieCollections, art):
     metadata_id = str(metadata.id).split('|')
     sceneURL = PAutils.Decode(metadata_id[0])
     if not sceneURL.startswith('http'):
@@ -33,11 +33,8 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
     # Studio
     metadata.studio = PAsearchSites.getSearchSiteName(siteNum)
 
-    # Tagline and Collection
-    metadata.collections.clear()
-    tagline = PAsearchSites.getSearchSiteName(siteNum)
-    metadata.tagline = tagline
-    metadata.collections.add(metadata.studio)
+    # Tagline and Collection(s)
+    movieCollections.addCollection(metadata.studio)
 
     # Release Date
     sceneDate = detailsPageElements.xpath('//div[contains(@class, "info mt-5")]')[0].text_content().split('•')[1].strip()
@@ -50,17 +47,15 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
     if description:
         metadata.summary = description[0].text_content().strip()
     else:
-        metadata.summary = detailsPageElements.xpath('//div[@class="description"]')[0].text_content().strip()
+        metadata.summary = detailsPageElements.xpath('//details[@class="description"]')[0].text_content().strip()
 
     # Genres
-    movieGenres.clearGenres()
-    for genreLink in detailsPageElements.xpath('//div[@class="tag-list"]//a'):
+    for genreLink in detailsPageElements.xpath('//div[contains(@class, "tag-list")]'):
         genreName = genreLink.text_content().strip()
 
         movieGenres.addGenre(genreName)
 
-    # Actors
-    movieActors.clearActors()
+    # Actor(s)
     for actorLink in detailsPageElements.xpath('//div[contains(@class, "right-info")]//div[contains(@class, "info")]//a'):
         actorName = actorLink.text_content().strip()
         actorPhotoURL = ''
@@ -68,8 +63,7 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
         movieActors.addActor(actorName, actorPhotoURL)
 
     # Posters
-    style = detailsPageElements.xpath('//div[@id="player"]/@style')[0]
-    img = style[style.find('\'') + 1:style.rfind('\'')].split('?', 1)[0]
+    img = detailsPageElements.xpath('//meta[@property="og:image"]/@content')[0]
     art.append(img)
 
     posters = detailsPageElements.xpath('//div[@class="gallery-item"]//a/@href')

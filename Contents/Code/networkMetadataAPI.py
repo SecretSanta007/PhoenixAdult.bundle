@@ -44,7 +44,7 @@ def search(results, lang, siteNum, searchData):
     return results
 
 
-def update(metadata, lang, siteNum, movieGenres, movieActors, art):
+def update(metadata, lang, siteNum, movieGenres, movieActors, movieCollections, art):
     metadata_id = str(metadata.id).split('|')
     sceneID = metadata_id[0]
 
@@ -59,7 +59,6 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
     metadata.summary = detailsPageElements['description']
 
     # Studio, Tagline and Collection(s)
-    metadata.collections.clear()
     if 'site' in detailsPageElements and detailsPageElements['site']:
         studio_name = detailsPageElements['site']['name']
         collections = [studio_name]
@@ -78,7 +77,7 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
         metadata.studio = studio_name
 
         for collection in collections:
-            metadata.collections.add(collection)
+            movieCollections.addCollection(collection)
 
     # Release Date
     date = detailsPageElements['date']
@@ -88,21 +87,23 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
         metadata.year = metadata.originally_available_at.year
 
     # Genres
-    movieGenres.clearGenres()
     if 'tags' in detailsPageElements:
         for genreLink in detailsPageElements['tags']:
             genreName = genreLink['name']
 
             movieGenres.addGenre(genreName)
 
-    # Actors
-    movieActors.clearActors()
+    # Actor(s)
     for actorLink in detailsPageElements['performers']:
         actorName = actorLink['name']
-        actorPhotoURL = actorLink['image']
+        if actorLink['face'] and 'default' not in actorLink['face']:
+            actorPhotoURL = actorLink['face']
+        else:
+            actorPhotoURL = ''
 
         if 'parent' in actorLink and actorLink['parent'] and 'name' in actorLink['parent']:
             actorName = actorLink['parent']['name']
+            actorPhotoURL = actorLink['parent']['face']
 
         movieActors.addActor(actorName, actorPhotoURL)
 

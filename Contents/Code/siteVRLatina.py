@@ -6,7 +6,7 @@ def search(results, lang, siteNum, searchData):
     directURL = PAsearchSites.getSearchSearchURL(siteNum) + searchData.title.replace(' ', '-').lower() + '.html'
 
     searchResults = [directURL]
-    googleResults = PAutils.getFromGoogleSearch(searchData.title, siteNum)
+    googleResults = PAutils.getFromSearchEngine(searchData.title, siteNum)
     for sceneURL in googleResults:
         if ('/video/' in sceneURL and sceneURL not in searchResults):
             searchResults.append(sceneURL)
@@ -26,7 +26,7 @@ def search(results, lang, siteNum, searchData):
     return results
 
 
-def update(metadata, lang, siteNum, movieGenres, movieActors, art):
+def update(metadata, lang, siteNum, movieGenres, movieActors, movieCollections, art):
     metadata_id = str(metadata.id).split('|')
     sceneURL = PAutils.Decode(metadata_id[0])
     if not sceneURL.startswith('http'):
@@ -43,11 +43,8 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
     # Studio
     metadata.studio = PAsearchSites.getSearchSiteName(siteNum)
 
-    # Tagline and Collection
-    metadata.collections.clear()
-    tagline = PAsearchSites.getSearchSiteName(siteNum)
-    metadata.tagline = tagline
-    metadata.collections.add(tagline)
+    # Tagline and Collection(s)
+    movieCollections.addCollection(metadata.studio)
 
     # Release Date
     date = detailsPageElements.xpath('//div[@class="content-base-info"]//div[@class="info-elem -length"]/span')[0].text_content().strip()
@@ -57,14 +54,12 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
         metadata.year = metadata.originally_available_at.year
 
     # Genres
-    movieGenres.clearGenres()
     for genreLink in detailsPageElements.xpath('//div[(contains(@class, "content-links -tags"))]/a'):
         genreName = genreLink.get('title')
 
         movieGenres.addGenre(genreName)
 
-    # Actors
-    movieActors.clearActors()
+    # Actor(s)
     for actorLink in detailsPageElements.xpath('//div[(contains(@class, "content-links -models"))]/a'):
         actorName = actorLink.get('title')
 

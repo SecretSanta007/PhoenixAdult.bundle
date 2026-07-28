@@ -6,7 +6,7 @@ def search(results, lang, siteNum, searchData):
     searchData.encoded = searchData.title.replace(' ', '-')
 
     searchResults = []
-    googleResults = PAutils.getFromGoogleSearch(searchData.title, siteNum)
+    googleResults = PAutils.getFromSearchEngine(searchData.title, siteNum)
     for sceneURL in googleResults:
         if ('/updates/' in sceneURL and '/tour_hwxxx/' in sceneURL) and sceneURL not in searchResults:
             searchResults.append(sceneURL)
@@ -31,17 +31,13 @@ def search(results, lang, siteNum, searchData):
     return results
 
 
-def update(metadata, lang, siteNum, movieGenres, movieActors, art):
+def update(metadata, lang, siteNum, movieGenres, movieActors, movieCollections, art):
     metadata_id = str(metadata.id).split('|')
     sceneURL = PAutils.Decode(metadata_id[0])
     if not sceneURL.startswith('http'):
         sceneURL = PAsearchSites.getSearchBaseURL(siteNum) + sceneURL
     req = PAutils.HTTPRequest(sceneURL)
     detailsPageElements = HTML.ElementFromString(req.text)
-
-    metadata.collections.clear()
-    movieGenres.clearGenres()
-    movieActors.clearActors()
 
     # Studio
     metadata.studio = 'HotwifeXXX'
@@ -53,12 +49,11 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
     metadata.summary = detailsPageElements.xpath('//div[@class="dvdDescription"]/p')[0].text_content().replace('description: ', '').strip()
 
     # Tagline and Collection(s)
-    metadata.collections.clear()
-    tagline = PAsearchSites.getSearchSiteName(siteNum).strip()
+    tagline = PAsearchSites.getSearchSiteName(siteNum)
     metadata.tagline = tagline
-    metadata.collections.add(tagline)
+    movieCollections.addCollection(tagline)
 
-    # No genres for scenes
+    # Genres
 
     # Release Date
     date = detailsPageElements.xpath('//div[@class="trailerInfo"]/div[@class="released2 trailerStarr"]')[0].text_content().strip().split(',')[0]
@@ -67,7 +62,7 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
         metadata.originally_available_at = date_object
         metadata.year = metadata.originally_available_at.year
 
-    # Actors
+    # Actor(s)
     actors = detailsPageElements.xpath('//div[@class="trailerMInfo"]//span[@class="tour_update_models"]/a')
     if actors:
         if len(actors) == 3:

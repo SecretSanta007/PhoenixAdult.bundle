@@ -18,7 +18,7 @@ def search(results, lang, siteNum, searchData):
     return results
 
 
-def update(metadata, lang, siteNum, movieGenres, movieActors, art):
+def update(metadata, lang, siteNum, movieGenres, movieActors, movieCollections, art):
     metadata_id = str(metadata.id).split('|')
     sceneURL = PAutils.Decode(metadata_id[0])
 
@@ -44,18 +44,16 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
             paragraph = ''
     metadata.summary = paragraph.replace('</br>', '\n').replace('<br>', '\n').strip()
 
-    # Tagline
-    metadata.collections.clear()
-
+    # Tagline and Collection(s)
     tagline = 'Dorcel Vision'
     studioNode = detailsPageElements.xpath('//div[@class="entries"]//strong[contains(., "Studio")]/following-sibling::a')
     if studioNode:
-        metadata.collections.add(tagline)
+        movieCollections.addCollection(tagline)
         tagline = studioNode[0].text_content().strip()
 
     metadata.tagline = tagline
     metadata.studio = tagline
-    metadata.collections.add(tagline)
+    movieCollections.addCollection(tagline)
 
     # Release Date
     if releaseDate:
@@ -69,10 +67,8 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
             metadata.year = year
 
     # Genres
-    movieGenres.clearGenres()
 
-    # Actors
-    movieActors.clearActors()
+    # Actor(s)
     for actorLink in detailsPageElements.xpath('//div[contains(@class, "casting")]//div[contains(@class, "slider-xl")]//div[@class="col-xs-2"]'):
         actorName = actorLink.xpath('.//a/strong')[0].text_content().strip()
         actorPhotoURL = actorLink.xpath('.//img/@data-src')[0]

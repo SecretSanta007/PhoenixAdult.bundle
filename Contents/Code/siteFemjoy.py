@@ -60,7 +60,7 @@ def search(results, lang, siteNum, searchData):
     return results
 
 
-def update(metadata, lang, siteNum, movieGenres, movieActors, art):
+def update(metadata, lang, siteNum, movieGenres, movieActors, movieCollections, art):
     metadata_id = str(metadata.id).split('|')
     searchURL = PAutils.Decode(metadata_id[0])
     sceneID = int(metadata_id[2])
@@ -85,10 +85,8 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
     metadata.summary = re.sub(r'<.*?>', '', detailsPageElements['long_description']).strip()  # must strip HTML tags
 
     # Tagline and Collection(s)
-    metadata.collections.clear()
     metadata.studio = PAsearchSites.getSearchSiteName(siteNum)
-    metadata.tagline = metadata.studio
-    metadata.collections.add(metadata.studio)
+    movieCollections.addCollection(metadata.studio)
 
     # Release date
     date_object = parse(detailsPageElements['release_date'])
@@ -96,7 +94,6 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
     metadata.year = metadata.originally_available_at.year
 
     # Genres
-    movieGenres.clearGenres()
     genres = []
 
     for genreLink in genres:
@@ -104,8 +101,7 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
 
         movieGenres.addGenre(genreName)
 
-    # Actors
-    movieActors.clearActors()
+    # Actor(s)
     if 'actors' in detailsPageElements:
         actors = detailsPageElements['actors']
         if len(actors) == 3:
@@ -132,11 +128,11 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
             movieActors.addActor(actorName, actorPhotoURL)
 
     # Director
-    metadata.directors.clear()
     if 'directors' in detailsPageElements:
         for directorLink in detailsPageElements['directors']:
-            director = metadata.directors.new()
-            director.name = directorLink['name']
+            directorName = directorLink['name']
+
+            movieActors.addDirector(directorName, '')
 
     # Posters
     art.append(detailsPageElements['thumb']['image'])

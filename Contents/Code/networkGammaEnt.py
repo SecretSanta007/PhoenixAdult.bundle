@@ -246,7 +246,7 @@ def search(results, lang, siteNum, searchData):
     return results
 
 
-def update(metadata, lang, siteNum, movieGenres, movieActors, art):
+def update(metadata, lang, siteNum, movieGenres, movieActors, movieCollections, art):
     metadata_id = metadata.id.split('|')
     sceneURL = PAutils.Decode(metadata_id[0])
     if not sceneURL.startswith('http'):
@@ -254,12 +254,9 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
     req = PAutils.HTTPRequest(sceneURL)
     detailsPageElements = HTML.ElementFromString(req.text)
 
-    metadata.directors.clear()
-    director = metadata.directors.new()
-
     if siteNum == 278 or (siteNum >= 285 and siteNum <= 287) or siteNum == 843:
         metadata.studio = 'XEmpire'
-        director.name = 'Mason'
+        movieActors.addDirector('Mason', '')
     elif siteNum == 329 or (siteNum >= 351 and siteNum <= 354) or siteNum == 861:
         metadata.studio = 'Blowpass'
     elif siteNum == 331 or (siteNum >= 355 and siteNum <= 360) or siteNum == 750:
@@ -300,20 +297,19 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
                 except:
                     paragraph = ''
     metadata.summary = paragraph.replace('</br>', '\n').replace('<br>', '\n').replace('<br/>', '\n').strip()
-    metadata.collections.clear()
 
-    # Tagline
+    # Tagline and Collection(s)
     try:
         tagline = detailsPageElements.xpath('//div[@class="studioLink"]')[0].text_content().strip()
     except:
         tagline = PAsearchSites.getSearchSiteName(siteNum)
     metadata.tagline = tagline
-    metadata.collections.add(tagline)
+    movieCollections.addCollection(tagline)
 
     # Title DVD
     try:
         dvdTitle = detailsPageElements.xpath('//a[contains(@class, "dvdLink")][1]/@title')[0].strip()
-        metadata.collections.add(dvdTitle.replace('#0', '').replace('#', ''))
+        movieCollections.addCollection(dvdTitle.replace('#0', '').replace('#', ''))
     except:
         try:
             dvdTitleScript = detailsPageElements.xpath('//script[contains(text(), "dvdName")]')[0].text_content()
@@ -321,7 +317,7 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
             omega = dvdTitleScript.find('"', alpha)
             dvdTitle = dvdTitleScript[alpha:omega]
             if dvdTitle:
-                metadata.collections.add(dvdTitle.replace('#0', '').replace('#', ''))
+                movieCollections.addCollection(dvdTitle.replace('#0', '').replace('#', ''))
         except:
             try:
                 dvdTitle = detailsPageElements.xpath('//h1[@class="sceneTitle"]')[0].text_content().strip()
@@ -329,20 +325,11 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
                 dvdTitle = dvdTitle.replace('BONUS', '')
                 dvdTitle = dvdTitle.replace('BTS-', '').replace('BTS - ', '')
                 dvdTitle = dvdTitle.replace('BTS', '')
-                metadata.collections.add(dvdTitle.replace('#0', '').replace('#', ''))
+                movieCollections.addCollection(dvdTitle.replace('#0', '').replace('#', ''))
             except:
                 dvdTitle = 'This is some damn nonsense that should never match the scene title'
 
-    # Director
-    try:
-        directors = detailsPageElements.xpath('//div[@class="sceneCol sceneColDirectors"]//a | //ul[@class="directedBy"]/li/a')
-        for dirname in directors:
-            director.name = dirname.text_content().strip()
-    except:
-        pass
-
     # Genres
-    movieGenres.clearGenres()
     genres = detailsPageElements.xpath('//div[@class="sceneCol sceneColCategories"]//a | //div[@class="sceneCategories"]//a | //p[@class="dvdCol"]/a')
     for genreLink in genres:
         genreName = genreLink.text_content().strip('\n').lower()
@@ -377,8 +364,7 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
             except:
                 pass
 
-    # Actors
-    movieActors.clearActors()
+    # Actor(s)
     actors = detailsPageElements.xpath('//div[@class="sceneCol sceneColActors"]//a | //div[@class="sceneCol sceneActors"]//a | //div[@class="pornstarNameBox"]/a[@class="pornstarName"] | //div[@id="slick_DVDInfoActorCarousel"]//a | //div[@id="slick_sceneInfoPlayerActorCarousel"]//a')
     if metadata.title == 'Kennedy Leigh' and metadata.tagline == 'Only Teen Blowjobs':
         movieActors.addActor('Kennedy Leigh', 'https://imgs1cdn.adultempire.com/actors/649607h.jpg')
@@ -426,6 +412,16 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
         except:
             pass
 
+    # Director
+    try:
+        directors = detailsPageElements.xpath('//div[@class="sceneCol sceneColDirectors"]//a | //ul[@class="directedBy"]/li/a')
+        for directorLink in directors:
+            directorName = directorLink.text_content().strip()
+
+            movieActors.addDirector(directorName, '')
+    except:
+        pass
+
     # Title
     try:
         title = detailsPageElements.xpath('//meta[@name="twitter:title"]/@content')[0].strip()
@@ -466,7 +462,6 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
     metadata.title = title
 
     # Posters
-
     # Video trailer background image
     try:
         twitterBG = detailsPageElements.xpath('//meta[@name="twitter:image"]/@content')[0]

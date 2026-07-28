@@ -14,7 +14,7 @@ def search(results, lang, siteNum, searchData):
         directURL = PAsearchSites.getSearchSearchURL(siteNum) + sceneID
         searchResults.append(directURL)
 
-    googleResults = PAutils.getFromGoogleSearch(searchData.title, siteNum)
+    googleResults = PAutils.getFromSearchEngine(searchData.title, siteNum)
     for sceneURL in googleResults:
         sceneURL = re.sub(r'www\.', '', sceneURL)
         sceneURL = re.sub(r'/(?<=\d/).*', '', sceneURL)
@@ -44,7 +44,7 @@ def search(results, lang, siteNum, searchData):
     return results
 
 
-def update(metadata, lang, siteNum, movieGenres, movieActors, art):
+def update(metadata, lang, siteNum, movieGenres, movieActors, movieCollections, art):
     metadata_id = str(metadata.id).split('|')
     sceneURL = PAutils.Decode(metadata_id[0])
 
@@ -58,10 +58,9 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
     metadata.summary = detailsPageElements.xpath('//div[@class="customcontent"]//div')[0].text_content().strip()
 
     # Tagline and Collection(s)
-    metadata.collections.clear()
-    tagline = PAsearchSites.getSearchSiteName(siteNum).strip()
+    tagline = PAsearchSites.getSearchSiteName(siteNum)
     metadata.studio = tagline
-    metadata.collections.add(tagline)
+    movieCollections.addCollection(tagline)
 
     # Release Date
     date = detailsPageElements.xpath('//div[@class="date"]')[0].text_content().strip()
@@ -71,15 +70,13 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
         metadata.year = metadata.originally_available_at.year
 
     # Genres
-    movieGenres.clearGenres()
     genres = detailsPageElements.xpath('//h4')[0].text_content().split(',')
     for genreLink in genres:
         genreName = genreLink.strip()
 
         movieGenres.addGenre(genreName)
 
-    # Actors
-    movieActors.clearActors()
+    # Actor(s)
     actors = detailsPageElements.xpath('//div[@class="customcontent"]//h3')[0].text_content().split(',')
     for actorLink in actors:
         actorName = actorLink.replace('&nbsp', '').strip()

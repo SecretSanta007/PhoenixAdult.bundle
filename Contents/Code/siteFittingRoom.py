@@ -26,7 +26,7 @@ def search(results, lang, siteNum, searchData):
     return results
 
 
-def update(metadata, lang, siteNum, movieGenres, movieActors, art):
+def update(metadata, lang, siteNum, movieGenres, movieActors, movieCollections, art):
     metadata_id = str(metadata.id).split('|')
     sceneURL = PAutils.Decode(metadata_id[0])
     if not sceneURL.startswith('http'):
@@ -52,10 +52,9 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
     metadata.studio = 'Fitting-Room'
 
     # Tagline and Collection(s)
-    metadata.collections.clear()
-    tagline = PAsearchSites.getSearchSiteName(siteNum).strip()
+    tagline = PAsearchSites.getSearchSiteName(siteNum)
     metadata.tagline = tagline
-    metadata.collections.add(tagline)
+    movieCollections.addCollection(tagline)
 
     # Get Collection from Related Videos
     collection = None
@@ -73,7 +72,7 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
             collection = 'Pantyhose'
 
     if collection:
-        metadata.collections.add(collection)
+        movieCollections.addCollection(collection)
 
     # Release Date
     if sceneDate:
@@ -81,8 +80,7 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
         metadata.originally_available_at = date_object
         metadata.year = metadata.originally_available_at.year
 
-    # Actors
-    movieActors.clearActors()
+    # Actor(s)
     actorLink = detailsPageElements.xpath('//a[@class="model"]/div[1]/img')[0]
     actorName = actorLink.get('alt').strip()
     actorPhotoURL = actorLink.get('src').strip()
@@ -90,7 +88,6 @@ def update(metadata, lang, siteNum, movieGenres, movieActors, art):
     movieActors.addActor(actorName, actorPhotoURL)
 
     # Genres
-    movieGenres.clearGenres()
     for genreLink in detailsPageElements.xpath('//meta[@property="article:tag"]/@content'):
         genreName = genreLink.replace(actorName, '').strip().lower()
 
